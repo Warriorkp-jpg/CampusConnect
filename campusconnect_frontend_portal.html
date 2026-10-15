@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusConnect | Placement Management Portal</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Tailwind CSS for supplementary utility rules -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+        .navbar-brand {
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        .card {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .drive-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
+        }
+        .api-inspector {
+            background-color: #0f172a;
+            color: #f8fafc;
+            border-radius: 0.75rem;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .badge-role-student {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+        }
+        .badge-role-recruiter {
+            background-color: #fef3c7;
+            color: #b45309;
+        }
+        .badge-role-admin {
+            background-color: #f3e8ff;
+            color: #7e22ce;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top py-2.5">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2 text-primary" href="#">
+                <i class="bi bi-mortarboard-fill fs-4"></i>
+                <span>CampusConnect</span>
+                <span class="badge bg-light text-secondary border fw-normal ms-1" style="font-size: 0.7rem;">DRF REST Client</span>
+            </a>
+
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <!-- Mode Switcher: Live Django Backend vs Demo Sandbox -->
+                <div class="d-flex align-items-center bg-light border rounded-pill px-3 py-1">
+                    <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                        <input class="form-check-input" type="checkbox" role="switch" id="apiModeSwitch">
+                        <label class="form-check-label small fw-semibold" for="apiModeSwitch" id="apiModeLabel">
+                            <span class="text-success"><i class="bi bi-hdd-network me-1"></i>Demo Sandbox</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Base URL Config Button -->
+                <button class="btn btn-sm btn-outline-secondary rounded-pill" data-bs-toggle="modal" data-bs-target="#corsModal" title="CORS & Backend Setup Help">
+                    <i class="bi bi-gear-fill me-1"></i><code>127.0.0.1:8000</code> Setup
+                </button>
+
+                <!-- Logged In User Profile Badge -->
+                <div id="navUserSection" class="d-none align-items-center gap-2">
+                    <span class="small text-muted">Signed in as</span>
+                    <span id="navUsername" class="fw-semibold small"></span>
+                    <span id="navRoleBadge" class="badge rounded-pill"></span>
+                    <button id="logoutBtn" class="btn btn-sm btn-outline-danger rounded-pill ms-1">
+                        <i class="bi bi-box-arrow-right me-1"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+
+        <!-- Live API Response Inspector Bar (Great for Interview Screen Shares!) -->
+        <div class="api-inspector p-3 mb-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary">LIVE API INSPECTOR</span>
+                    <code id="inspectorEndpoint" class="text-info small">Ready — Waiting for API Request...</code>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span id="inspectorStatusBadge" class="badge bg-secondary">IDLE</span>
+                    <button class="btn btn-xs btn-outline-light py-0 px-2" style="font-size: 0.72rem;" onclick="clearInspector()">Clear</button>
+                </div>
+            </div>
+            <pre id="inspectorPayload" class="mb-0 small text-light" style="max-height: 110px; overflow-y: auto; font-size: 0.8rem;">// Click any button or test preset below to inspect the HTTP status code and JSON response from Django REST Framework.</pre>
+        </div>
+
+        <!-- Quick Interview Demo Presets Bar (Only shown in Demo Mode or for fast testing) -->
+        <div id="demoQuickBar" class="alert alert-primary border-0 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-2 py-2 px-3 mb-4">
+            <div class="small">
+                <i class="bi bi-lightning-charge-fill me-1"></i>
+                <strong>Interview Quick-Switch:</strong> Instantly test different roles & CGPA profiles without typing:
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-sm btn-light border fw-medium" onclick="quickLoginPreset('karthik_cse')">
+                    <i class="bi bi-person-check text-success me-1"></i>Eligible Student (CGPA 8.5)
+                </button>
+                <button class="btn btn-sm btn-light border fw-medium" onclick="quickLoginPreset('student1')">
+                    <i class="bi bi-person-exclamation text-danger me-1"></i>Low CGPA Student (CGPA 6.2)
+                </button>
+                <button class="btn btn-sm btn-light border fw-medium" onclick="quickLoginPreset('hr_tcs')">
+                    <i class="bi bi-briefcase text-warning me-1"></i>Recruiter Account
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== AUTHENTICATION SECTION (LOGIN / REGISTER) ==================== -->
+        <div id="authSection" class="row justify-content-center my-3">
+            <div class="col-md-7 col-lg-5">
+                <div class="card p-4">
+                    <ul class="nav nav-pills nav-fill mb-4 bg-light p-1 rounded-3" id="authTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active rounded-3 fw-semibold" id="login-tab" data-bs-toggle="pill" data-bs-target="#loginPane" type="button" role="tab">
+                                <i class="bi bi-key me-1"></i>JWT Login
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link rounded-3 fw-semibold" id="register-tab" data-bs-toggle="pill" data-bs-target="#registerPane" type="button" role="tab">
+                                <i class="bi bi-person-plus me-1"></i>Register User
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- Login Tab (`POST /api/login/`) -->
+                        <div class="tab-pane fade show active" id="loginPane" role="tabpanel">
+                            <form id="loginForm">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Username</label>
+                                    <input type="text" class="form-control" id="loginUsername" placeholder="e.g. karthik_cse" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Password</label>
+                                    <input type="password" class="form-control" id="loginPassword" placeholder="••••••••" required>
+                                </div>
+                                <div id="loginRoleOverrideBox" class="mb-3">
+                                    <label class="form-label small fw-semibold text-secondary">
+                                        Your Role & Profile <span class="fw-normal">(Used by UI badge; enforced by JWT on backend)</span>
+                                    </label>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <select class="form-select form-select-sm" id="loginRoleHint">
+                                                <option value="STUDENT">STUDENT</option>
+                                                <option value="RECRUITER">RECRUITER</option>
+                                                <option value="ADMIN">ADMIN</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <input type="number" step="0.01" class="form-control form-control-sm" id="loginCgpaHint" placeholder="CGPA (e.g. 8.50)" value="8.50">
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100 fw-semibold py-2">
+                                    <i class="bi bi-box-arrow-in-right me-1"></i>Sign In & Generate JWT
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Register Tab (`POST /api/register/`) -->
+                        <div class="tab-pane fade" id="registerPane" role="tabpanel">
+                            <form id="registerForm">
+                                <div class="mb-2.5">
+                                    <label class="form-label small fw-semibold">Username</label>
+                                    <input type="text" class="form-control" id="regUsername" placeholder="e.g. rahul_cse" required>
+                                </div>
+                                <div class="mb-2.5 mt-2">
+                                    <label class="form-label small fw-semibold">Email Address</label>
+                                    <input type="email" class="form-control" id="regEmail" placeholder="rahul@college.edu" required>
+                                </div>
+                                <div class="mb-2.5 mt-2">
+                                    <label class="form-label small fw-semibold">Password</label>
+                                    <input type="password" class="form-control" id="regPassword" placeholder="••••••••" required>
+                                </div>
+                                <div class="mb-2.5 mt-2">
+                                    <label class="form-label small fw-semibold">Select Role</label>
+                                    <select class="form-select" id="regRole" onchange="toggleStudentAcademicFields()">
+                                        <option value="STUDENT" selected>STUDENT</option>
+                                        <option value="RECRUITER">RECRUITER</option>
+                                        <option value="ADMIN">ADMIN</option>
+                                    </select>
+                                </div>
+
+                                <!-- Student-Only Academic Fields -->
+                                <div id="studentAcademicFields" class="row g-2 mt-2 p-2.5 bg-light rounded-3 border">
+                                    <div class="col-12">
+                                        <span class="badge bg-primary-subtle text-primary mb-1">Academic Eligibility Profile</span>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold mb-1">Current CGPA</label>
+                                        <input type="number" step="0.01" min="0" max="10" class="form-control form-control-sm" id="regCgpa" value="8.20">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold mb-1">Active Backlogs</label>
+                                        <input type="number" min="0" max="20" class="form-control form-control-sm" id="regBacklogs" value="0">
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-success w-100 fw-semibold py-2 mt-3">
+                                    <i class="bi bi-check2-circle me-1"></i>Create Account (`POST /api/register/`)
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== MAIN DASHBOARD SECTION ==================== -->
+        <div id="dashboardSection" class="d-none">
+            <div class="row g-4">
+
+                <!-- Left Column: User Profile & Create Placement Drive Form -->
+                <div class="col-lg-4">
+                    <!-- Active User Card -->
+                    <div class="card p-3.5 mb-4">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 class="fw-bold mb-0"><i class="bi bi-person-badge me-1 text-primary"></i>Session & JWT Profile</h6>
+                            <span id="dashRoleBadge" class="badge rounded-pill"></span>
+                        </div>
+                        <div class="small text-secondary mb-2">
+                            <div><strong>Username:</strong> <span id="dashUsername"></span></div>
+                            <div id="dashAcademicInfo">
+                                <strong>CGPA:</strong> <span id="dashCgpa" class="fw-semibold text-dark"></span> |
+                                <strong>Backlogs:</strong> <span id="dashBacklogs" class="fw-semibold text-dark"></span>
+                            </div>
+                        </div>
+                        <div class="bg-light p-2 rounded border">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted" style="font-size: 0.7rem;">ACTIVE BEARER JWT TOKEN</span>
+                                <button class="btn btn-link p-0 text-decoration-none" style="font-size: 0.7rem;" onclick="copyJwtToken()">
+                                    <i class="bi bi-clipboard"></i> Copy
+                                </button>
+                            </div>
+                            <code id="dashJwtPreview" class="d-block text-truncate small text-primary"></code>
+                        </div>
+                    </div>
+
+                    <!-- Post New Drive Card (`POST /api/drive/`) -->
+                    <div class="card p-3.5">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold mb-0"><i class="bi bi-building-add me-1 text-primary"></i>Post Placement Drive</h6>
+                            <span class="badge bg-warning-subtle text-warning-emphasis border">Recruiter Only</span>
+                        </div>
+                        <p class="small text-muted mb-3">
+                            Sends <code>POST /api/drive/</code>. Try clicking submit while logged in as a <strong>STUDENT</strong> during your interview to demonstrate <code>403 Forbidden</code> RBAC protection!
+                        </p>
+
+                        <form id="createDriveForm">
+                            <div class="mb-2.5">
+                                <label class="form-label small fw-semibold mb-1">Company Name</label>
+                                <input type="text" class="form-control form-control-sm" id="driveCompany" placeholder="e.g. Infosys" required>
+                            </div>
+                            <div class="mb-2.5 mt-2">
+                                <label class="form-label small fw-semibold mb-1">Role Title</label>
+                                <input type="text" class="form-control form-control-sm" id="driveRole" placeholder="e.g. Specialist Programmer" required>
+                            </div>
+                            <div class="row g-2 mt-1">
+                                <div class="col-4">
+                                    <label class="form-label small fw-semibold mb-1">Package (LPA)</label>
+                                    <input type="number" step="0.1" class="form-control form-control-sm" id="drivePackage" value="9.5" required>
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small fw-semibold mb-1">Min CGPA</label>
+                                    <input type="number" step="0.1" class="form-control form-control-sm" id="driveMinCgpa" value="7.5" required>
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small fw-semibold mb-1">Max Backlogs</label>
+                                    <input type="number" class="form-control form-control-sm" id="driveMaxBacklogs" value="0" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold py-2 mt-3">
+                                <i class="bi bi-plus-circle me-1"></i>Publish Drive (`POST /api/drive/`)
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Right Column: Placement Drives Grid & Student Applications Table -->
+                <div class="col-lg-8">
+
+                    <!-- Active Placement Drives Header -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="fw-bold mb-0">Active Placement Drives</h5>
+                            <span class="small text-muted">Fetched from <code>GET /api/drive/</code></span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="fetchDrivesAndApplications()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Refresh Data
+                        </button>
+                    </div>
+
+                    <!-- Drives Container -->
+                    <div id="drivesGrid" class="row g-3 mb-4">
+                        <!-- Dynamically populated by JS -->
+                    </div>
+
+                    <!-- Applications Table Section (`GET /api/application/`) -->
+                    <div class="card p-3.5">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h6 class="fw-bold mb-0"><i class="bi bi-file-earmark-check me-1 text-primary"></i>Submitted Applications</h6>
+                                <span class="small text-muted">Fetched from <code>GET /api/application/</code> (Data-isolated per Student)</span>
+                            </div>
+                            <span id="appCountBadge" class="badge bg-secondary rounded-pill">0 Applications</span>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle small mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Student</th>
+                                        <th>Company</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Applied At</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="applicationsTableBody">
+                                    <!-- Dynamically populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal: How to Connect Live Django Server (CORS Setup) -->
+    <div class="modal fade" id="corsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-hdd-network text-primary me-2"></i>Connecting to Your Live Django Backend (`127.0.0.1:8000`)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body small">
+                    <p class="mb-2">When switching the top toggle from <strong>Demo Sandbox</strong> to <strong>Live Django API</strong>, browsers require <code>django-cors-headers</code> so your frontend HTML file is allowed to call <code>http://127.0.0.1:8000</code>.</p>
+                    <h6 class="fw-bold mt-3">1. Install CORS Headers in your Terminal:</h6>
+                    <pre class="bg-dark text-light p-2.5 rounded">pip install django-cors-headers</pre>
+
+                    <h6 class="fw-bold mt-3">2. Add to <code>rbac_project/settings.py</code>:</h6>
+                    <pre class="bg-dark text-light p-2.5 rounded">INSTALLED_APPS = [
+    ...
+    'corsheaders',  # Add this
+    'rest_framework',
+    'accounts',
+    'drive',
+    'application',
+]
+
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Add at the VERY TOP!
+    'django.middleware.security.SecurityMiddleware',
+    ...
+]
+
+CORS_ALLOW_ALL_ORIGINS = True  # Allow frontend to talk to Django API</pre>
+                    <div class="mt-3">
+                        <label class="form-label fw-semibold">Backend Base URL:</label>
+                        <input type="text" id="apiBaseUrlInput" class="form-control form-control-sm" value="http://127.0.0.1:8000">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal" onclick="saveBaseUrl()">Save & Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // ===================== STATE & CONFIGURATION =====================
+        let API_BASE_URL = "http://127.0.0.1:8000";
+        let isLiveBackend = false; // Defaults to Demo Sandbox so it works immediately in preview
+        let currentUser = null;    // { username, role, cgpa, backlogs, access, refresh }
+
+        // Initial Mock Database for Demo Sandbox Mode (Matches Django Models 1:1)
+        let mockUsers = [
+            { id: 1, username: "karthik_cse", email: "karthik@jmit.ac.in", password: "password123", role: "STUDENT", cgpa: 8.50, backlogs: 0 },
+            { id: 2, username: "student1", email: "student1@test.com", password: "pass1234", role: "STUDENT", cgpa: 6.20, backlogs: 2 },
+            { id: 3, username: "hr_tcs", email: "hr@tcs.com", password: "password123", role: "RECRUITER", cgpa: 0.00, backlogs: 0 }
+        ];
+
+        let mockDrives = [
+            {
+                id: 1,
+                company_name: "TCS Digital",
+                role_title: "Systems Engineer",
+                package_lpa: 7.00,
+                min_cgpa: 7.50,
+                max_backlogs: 0,
+                posted_by: "hr_tcs",
+                created_at: "2026-10-14T10:30:00Z"
+            },
+            {
+                id: 2,
+                company_name: "AppVin Technologies",
+                role_title: "Python Django Developer",
+                package_lpa: 6.50,
+                min_cgpa: 7.00,
+                max_backlogs: 1,
+                posted_by: "hr_tcs",
+                created_at: "2026-10-14T14:15:00Z"
+            },
+            {
+                id: 3,
+                company_name: "Tech Mahindra",
+                role_title: "Graduate Engineer Trainee",
+                package_lpa: 4.50,
+                min_cgpa: 6.00,
+                max_backlogs: 2,
+                posted_by: "hr_tcs",
+                created_at: "2026-10-15T09:00:00Z"
+            }
+        ];
+
+        let mockApplications = [
+            {
+                id: 1,
+                student: 1,
+                student_name: "karthik_cse",
+                drive: 2,
+                company_name: "AppVin Technologies",
+                role_title: "Python Django Developer",
+                status: "APPLIED",
+                applied_at: "2026-10-15T11:20:00Z"
+            }
+        ];
+
+        // ===================== API INSPECTOR LOGGER =====================
+        function logApiCall(method, endpoint, status, payloadObj) {
+            const endpointEl = document.getElementById("inspectorEndpoint");
+            const badgeEl = document.getElementById("inspectorStatusBadge");
+            const payloadEl = document.getElementById("inspectorPayload");
+
+            const modePrefix = isLiveBackend ? API_BASE_URL : "[DEMO SANDBOX]";
+            endpointEl.textContent = `${method} ${modePrefix}${endpoint}`;
+
+            badgeEl.className = "badge ";
+            if (status >= 200 && status < 300) {
+                badgeEl.classList.add("bg-success");
+                badgeEl.textContent = `${status} ${status === 201 ? 'Created' : 'OK'}`;
+            } else if (status === 400) {
+                badgeEl.classList.add("bg-warning", "text-dark");
+                badgeEl.textContent = "400 Bad Request (Validation Error)";
+            } else if (status === 401 || status === 403) {
+                badgeEl.classList.add("bg-danger");
+                badgeEl.textContent = `${status} ${status === 403 ? 'Forbidden (RBAC Blocked)' : 'Unauthorized'}`;
+            } else {
+                badgeEl.classList.add("bg-danger");
+                badgeEl.textContent = `${status} Server / Network Error`;
+            }
+
+            payloadEl.textContent = JSON.stringify(payloadObj, null, 2);
+        }
+
+        function clearInspector() {
+            document.getElementById("inspectorEndpoint").textContent = "Ready — Waiting for API Request...";
+            document.getElementById("inspectorStatusBadge").className = "badge bg-secondary";
+            document.getElementById("inspectorStatusBadge").textContent = "IDLE";
+            document.getElementById("inspectorPayload").textContent = "// Cleared.";
+        }
+
+        // ===================== MODE SWITCHER =====================
+        document.getElementById("apiModeSwitch").addEventListener("change", function(e) {
+            isLiveBackend = e.target.checked;
+            const label = document.getElementById("apiModeLabel");
+            if (isLiveBackend) {
+                label.innerHTML = `<span class="text-primary"><i class="bi bi-broadcast me-1"></i>Live Django API (127.0.0.1:8000)</span>`;
+                logApiCall("INFO", "/api/", 200, {
+                    mode: "Live Django Backend Activated",
+                    note: "Ensure 'python manage.py runserver' is running and django-cors-headers is enabled."
+                });
+            } else {
+                label.innerHTML = `<span class="text-success"><i class="bi bi-hdd-network me-1"></i>Demo Sandbox</span>`;
+                logApiCall("INFO", "/sandbox/", 200, {
+                    mode: "Interactive Demo Sandbox Activated",
+                    note: "Simulating exact Django REST Framework responses in browser memory."
+                });
+            }
+            if (currentUser) {
+                fetchDrivesAndApplications();
+            }
+        });
+
+        function saveBaseUrl() {
+            const val = document.getElementById("apiBaseUrlInput").value.trim().replace(/\/$/, "");
+            if (val) API_BASE_URL = val;
+        }
+
+        function toggleStudentAcademicFields() {
+            const role = document.getElementById("regRole").value;
+            const box = document.getElementById("studentAcademicFields");
+            box.style.display = role === "STUDENT" ? "flex" : "none";
+        }
+
+        // ===================== QUICK INTERVIEW PRESETS =====================
+        function quickLoginPreset(username) {
+            if (isLiveBackend) {
+                // Fill the login form for convenience
+                document.getElementById("loginUsername").value = username;
+                document.getElementById("loginPassword").value = username === "student1" ? "pass1234" : "password123";
+                logApiCall("INFO", "/api/login/", 200, {
+                    hint: `Credentials filled for ${username}. Click 'Sign In & Generate JWT' to authenticate against 127.0.0.1:8000.`
+                });
+                return;
+            }
+
+            const user = mockUsers.find(u => u.username === username);
+            if (!user) return;
+
+            const fakeToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${btoa(JSON.stringify({ user_id: user.id, username: user.username, role: user.role }))}.signature`;
+            currentUser = {
+                id: user.id,
+                username: user.username,
+                role: user.role,
+                cgpa: user.cgpa,
+                backlogs: user.backlogs,
+                access: fakeToken
+            };
+
+            logApiCall("POST", "/api/login/", 200, {
+                refresh: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh_token_payload.sig",
+                access: fakeToken,
+                user_profile: { username: user.username, role: user.role, cgpa: user.cgpa, backlogs: user.backlogs }
+            });
+
+            renderDashboardState();
+        }
+
+        // ===================== 1. REGISTER USER (`POST /api/register/`) =====================
+        document.getElementById("registerForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+            const payload = {
+                username: document.getElementById("regUsername").value.trim(),
+                email: document.getElementById("regEmail").value.trim(),
+                password: document.getElementById("regPassword").value,
+                role: document.getElementById("regRole").value,
+                cgpa: parseFloat(document.getElementById("regCgpa").value || 0),
+                backlogs: parseInt(document.getElementById("regBacklogs").value || 0, 10)
+            };
+
+            if (!isLiveBackend) {
+                if (mockUsers.some(u => u.username === payload.username)) {
+                    logApiCall("POST", "/api/register/", 400, { username: ["A user with that username already exists."] });
+                    return;
+                }
+                const newUser = { id: mockUsers.length + 1, ...payload };
+                mockUsers.push(newUser);
+                const responseData = { id: newUser.id, username: newUser.username, email: newUser.email, role: newUser.role, cgpa: newUser.cgpa, backlogs: newUser.backlogs };
+                logApiCall("POST", "/api/register/", 201, responseData);
+                // Switch to login tab
+                document.getElementById("login-tab").click();
+                document.getElementById("loginUsername").value = payload.username;
+                document.getElementById("loginPassword").value = payload.password;
+                document.getElementById("loginRoleHint").value = payload.role;
+                document.getElementById("loginCgpaHint").value = payload.cgpa;
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/register/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                logApiCall("POST", "/api/register/", res.status, data);
+                if (res.ok) {
+                    // Save profile hints locally so UI shows exact CGPA/role on login
+                    localStorage.setItem(`cc_profile_${payload.username}`, JSON.stringify(payload));
+                    document.getElementById("login-tab").click();
+                    document.getElementById("loginUsername").value = payload.username;
+                    document.getElementById("loginPassword").value = payload.password;
+                }
+            } catch (err) {
+                logApiCall("POST", "/api/register/", 500, {
+                    error: "Could not reach http://127.0.0.1:8000. Is Django running and CORS configured?",
+                    details: err.message
+                });
+            }
+        });
+
+        // ===================== 2. LOGIN USER (`POST /api/login/`) =====================
+        document.getElementById("loginForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+            const username = document.getElementById("loginUsername").value.trim();
+            const password = document.getElementById("loginPassword").value;
+            const roleHint = document.getElementById("loginRoleHint").value;
+            const cgpaHint = parseFloat(document.getElementById("loginCgpaHint").value || 0);
+
+            if (!isLiveBackend) {
+                const user = mockUsers.find(u => u.username === username && u.password === password);
+                if (!user) {
+                    logApiCall("POST", "/api/login/", 401, {
+                        detail: "No active account found with the given credentials"
+                    });
+                    return;
+                }
+                quickLoginPreset(user.username);
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/login/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                logApiCall("POST", "/api/login/", res.status, data);
+
+                if (res.ok && data.access) {
+                    const savedProfile = JSON.parse(localStorage.getItem(`cc_profile_${username}`) || "null");
+                    currentUser = {
+                        username: username,
+                        role: savedProfile ? savedProfile.role : roleHint,
+                        cgpa: savedProfile ? savedProfile.cgpa : cgpaHint,
+                        backlogs: savedProfile ? savedProfile.backlogs : 0,
+                        access: data.access,
+                        refresh: data.refresh
+                    };
+                    renderDashboardState();
+                }
+            } catch (err) {
+                logApiCall("POST", "/api/login/", 500, {
+                    error: "Connection refused at http://127.0.0.1:8000/api/login/",
+                    details: err.message
+                });
+            }
+        });
+
+        // ===================== 3. CREATE DRIVE (`POST /api/drive/`) =====================
+        document.getElementById("createDriveForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+            if (!currentUser) return;
+
+            const payload = {
+                company_name: document.getElementById("driveCompany").value.trim(),
+                role_title: document.getElementById("driveRole").value.trim(),
+                package_lpa: parseFloat(document.getElementById("drivePackage").value),
+                min_cgpa: parseFloat(document.getElementById("driveMinCgpa").value),
+                max_backlogs: parseInt(document.getElementById("driveMaxBacklogs").value, 10)
+            };
+
+            if (!isLiveBackend) {
+                // Enforce IsRecruiterRole in Demo Sandbox just like DRF!
+                if (currentUser.role !== "RECRUITER") {
+                    logApiCall("POST", "/api/drive/", 403, {
+                        detail: "You do not have permission to perform this action. (Blocked by IsRecruiterRole)"
+                    });
+                    return;
+                }
+                const newDrive = {
+                    id: mockDrives.length + 1,
+                    ...payload,
+                    posted_by: currentUser.username,
+                    created_at: new Date().toISOString()
+                };
+                mockDrives.unshift(newDrive);
+                logApiCall("POST", "/api/drive/", 201, newDrive);
+                document.getElementById("createDriveForm").reset();
+                fetchDrivesAndApplications();
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/drive/`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${currentUser.access}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                logApiCall("POST", "/api/drive/", res.status, data);
+                if (res.ok) {
+                    document.getElementById("createDriveForm").reset();
+                    fetchDrivesAndApplications();
+                }
+            } catch (err) {
+                logApiCall("POST", "/api/drive/", 500, { error: err.message });
+            }
+        });
+
+        // ===================== 4. APPLY TO DRIVE (`POST /api/application/`) =====================
+        async function applyToDrive(driveId) {
+            if (!currentUser) return;
+
+            if (!isLiveBackend) {
+                // 1. Check Role Permission (IsStudentRole)
+                if (currentUser.role !== "STUDENT") {
+                    logApiCall("POST", "/api/application/", 403, {
+                        detail: "You do not have permission to perform this action. (Only STUDENT role can apply)"
+                    });
+                    return;
+                }
+
+                const drive = mockDrives.find(d => d.id === driveId);
+                if (!drive) return;
+
+                // 2. Check Duplicate Application
+                if (mockApplications.some(a => a.student_name === currentUser.username && a.drive === driveId)) {
+                    logApiCall("POST", "/api/application/", 400, {
+                        non_field_errors: ["You have already applied for this placement drive."]
+                    });
+                    return;
+                }
+
+                // 3. Check CGPA Eligibility (Exact match to ApplicationSerializer.validate)
+                if (currentUser.cgpa < drive.min_cgpa) {
+                    logApiCall("POST", "/api/application/", 400, {
+                        non_field_errors: [
+                            `Not Eligible: Your CGPA (${currentUser.cgpa.toFixed(2)}) is less than the required CGPA (${drive.min_cgpa.toFixed(2)}).`
+                        ]
+                    });
+                    return;
+                }
+
+                // 4. Check Active Backlogs Eligibility
+                if (currentUser.backlogs > drive.max_backlogs) {
+                    logApiCall("POST", "/api/application/", 400, {
+                        non_field_errors: [
+                            `Not Eligible: You have ${currentUser.backlogs} backlogs, but the maximum allowed is ${drive.max_backlogs}.`
+                        ]
+                    });
+                    return;
+                }
+
+                const newApp = {
+                    id: mockApplications.length + 1,
+                    student: currentUser.id || 1,
+                    student_name: currentUser.username,
+                    drive: drive.id,
+                    company_name: drive.company_name,
+                    role_title: drive.role_title,
+                    status: "APPLIED",
+                    applied_at: new Date().toISOString()
+                };
+                mockApplications.unshift(newApp);
+                logApiCall("POST", "/api/application/", 201, newApp);
+                fetchDrivesAndApplications();
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/application/`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${currentUser.access}`
+                    },
+                    body: JSON.stringify({ drive: driveId })
+                });
+                const data = await res.json();
+                logApiCall("POST", "/api/application/", res.status, data);
+                if (res.ok) {
+                    fetchDrivesAndApplications();
+                }
+            } catch (err) {
+                logApiCall("POST", "/api/application/", 500, { error: err.message });
+            }
+        }
+
+        // ===================== 5. FETCH DRIVES & APPLICATIONS =====================
+        async function fetchDrivesAndApplications() {
+            if (!currentUser) return;
+
+            if (!isLiveBackend) {
+                renderDrivesGrid(mockDrives);
+                // Data Isolation in Demo Mode: Students only see their own applications
+                const visibleApps = currentUser.role === "STUDENT"
+                    ? mockApplications.filter(a => a.student_name === currentUser.username)
+                    : mockApplications;
+                renderApplicationsTable(visibleApps);
+                return;
+            }
+
+            try {
+                const [drivesRes, appsRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/api/drive/`, {
+                        headers: { "Authorization": `Bearer ${currentUser.access}` }
+                    }),
+                    fetch(`${API_BASE_URL}/api/application/`, {
+                        headers: { "Authorization": `Bearer ${currentUser.access}` }
+                    })
+                ]);
+
+                const drivesData = await drivesRes.json();
+                const appsData = await appsRes.json();
+
+                if (drivesRes.ok) renderDrivesGrid(drivesData);
+                if (appsRes.ok) renderApplicationsTable(appsData);
+            } catch (err) {
+                logApiCall("GET", "/api/drive/", 500, { error: "Failed to fetch from live backend.", details: err.message });
+            }
+        }
+
+        // ===================== UI RENDERING HELPERS =====================
+        function getRoleBadgeClass(role) {
+            if (role === "RECRUITER") return "badge-role-recruiter";
+            if (role === "ADMIN") return "badge-role-admin";
+            return "badge-role-student";
+        }
+
+        function renderDashboardState() {
+            const authSection = document.getElementById("authSection");
+            const dashSection = document.getElementById("dashboardSection");
+            const navUserSection = document.getElementById("navUserSection");
+
+            if (!currentUser) {
+                authSection.classList.remove("d-none");
+                dashSection.classList.add("d-none");
+                navUserSection.classList.add("d-none");
+                navUserSection.classList.remove("d-flex");
+                return;
+            }
+
+            authSection.classList.add("d-none");
+            dashSection.classList.remove("d-none");
+            navUserSection.classList.remove("d-none");
+            navUserSection.classList.add("d-flex");
+
+            document.getElementById("navUsername").textContent = currentUser.username;
+            const navBadge = document.getElementById("navRoleBadge");
+            navBadge.className = `badge rounded-pill ${getRoleBadgeClass(currentUser.role)}`;
+            navBadge.textContent = currentUser.role;
+
+            document.getElementById("dashUsername").textContent = currentUser.username;
+            const dashBadge = document.getElementById("dashRoleBadge");
+            dashBadge.className = `badge rounded-pill ${getRoleBadgeClass(currentUser.role)}`;
+            dashBadge.textContent = currentUser.role;
+
+            const academicInfo = document.getElementById("dashAcademicInfo");
+            if (currentUser.role === "STUDENT") {
+                academicInfo.style.display = "block";
+                document.getElementById("dashCgpa").textContent = Number(currentUser.cgpa).toFixed(2);
+                document.getElementById("dashBacklogs").textContent = currentUser.backlogs;
+            } else {
+                academicInfo.style.display = "none";
+            }
+
+            document.getElementById("dashJwtPreview").textContent = currentUser.access;
+
+            fetchDrivesAndApplications();
+        }
+
+        function renderDrivesGrid(drives) {
+            const grid = document.getElementById("drivesGrid");
+            if (!drives || drives.length === 0) {
+                grid.innerHTML = `<div class="col-12"><div class="alert alert-light border text-center small">No placement drives posted yet.</div></div>`;
+                return;
+            }
+
+            grid.innerHTML = drives.map(d => `
+                <div class="col-md-6">
+                    <div class="card drive-card h-100 p-3.5 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-dark">${escapeHtml(d.company_name)}</h6>
+                                    <div class="small text-secondary">${escapeHtml(d.role_title)}</div>
+                                </div>
+                                <span class="badge bg-success-subtle text-success border fw-semibold">${Number(d.package_lpa).toFixed(2)} LPA</span>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2 my-2.5">
+                                <span class="badge bg-light text-dark border fw-normal">
+                                    <i class="bi bi-award text-primary me-1"></i>Min CGPA: <strong>${Number(d.min_cgpa).toFixed(2)}</strong>
+                                </span>
+                                <span class="badge bg-light text-dark border fw-normal">
+                                    <i class="bi bi-exclamation-circle text-warning me-1"></i>Max Backlogs: <strong>${d.max_backlogs}</strong>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top mt-2">
+                            <span class="text-muted" style="font-size: 0.75rem;">
+                                <i class="bi bi-person-check me-1"></i>By ${escapeHtml(d.posted_by || 'Recruiter')}
+                            </span>
+                            <button class="btn btn-sm btn-primary rounded-pill px-3 fw-medium" onclick="applyToDrive(${d.id})">
+                                Apply Now <i class="bi bi-arrow-right-short"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        function renderApplicationsTable(apps) {
+            const tbody = document.getElementById("applicationsTableBody");
+            document.getElementById("appCountBadge").textContent = `${apps.length} Application${apps.length === 1 ? '' : 's'}`;
+
+            if (!apps || apps.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">No applications found for your account.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = apps.map(a => {
+                const dateStr = a.applied_at ? new Date(a.applied_at).toLocaleDateString() : "Today";
+                return `
+                    <tr>
+                        <td class="fw-semibold">#${a.id}</td>
+                        <td><span class="badge bg-light text-dark border">${escapeHtml(a.student_name || String(a.student))}</span></td>
+                        <td class="fw-medium">${escapeHtml(a.company_name || `Drive #${a.drive}`)}</td>
+                        <td>${escapeHtml(a.role_title || "-")}</td>
+                        <td><span class="badge bg-primary-subtle text-primary">${escapeHtml(a.status || 'APPLIED')}</span></td>
+                        <td class="text-muted">${dateStr}</td>
+                    </tr>
+                `;
+            }).join("");
+        }
+
+        function copyJwtToken() {
+            if (!currentUser || !currentUser.access) return;
+            const tempInput = document.createElement("textarea");
+            tempInput.value = currentUser.access;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            logApiCall("CLIPBOARD", "Authorization: Bearer <token>", 200, { message: "JWT Access Token copied to clipboard!" });
+        }
+
+        document.getElementById("logoutBtn").addEventListener("click", function() {
+            currentUser = null;
+            logApiCall("AUTH", "/logout/", 200, { detail: "Cleared JWT token from client memory." });
+            renderDashboardState();
+        });
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        // Auto-load the Eligible Student preset on startup so the user immediately sees the full dashboard
+        window.onload = function() {
+            quickLoginPreset('karthik_cse');
+        };
+    </script>
+</body>
+</html>
