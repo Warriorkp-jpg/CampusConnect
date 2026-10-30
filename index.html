@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusConnect | Placement Management Portal</title>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS & Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        :root {
+            --brand-primary: #2563eb;
+            --brand-dark: #0f172a;
+            --sidebar-width: 260px;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+            color: #0f172a;
+            overflow-x: hidden;
+        }
+        .font-mono-code {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Layout & Sidebar */
+        .app-wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+        .app-sidebar {
+            width: var(--sidebar-width);
+            background: #0f172a;
+            color: #f8fafc;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #1e293b;
+        }
+        .app-main {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        @media (max-width: 991.98px) {
+            .app-wrapper {
+                flex-direction: column;
+            }
+            .app-sidebar {
+                width: 100%;
+            }
+        }
+
+        /* Sidebar Navigation Links */
+        .side-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            color: #94a3b8;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+        }
+        .side-nav-link:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: #ffffff;
+        }
+        .side-nav-link.active {
+            background: #2563eb;
+            color: #ffffff;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+        }
+
+        /* Cards & KPIs */
+        .glass-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .drive-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.07);
+        }
+        .kpi-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+        }
+
+        /* Application Status Badges */
+        .badge-APPLIED { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+        .badge-SHORTLISTED { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+        .badge-SELECTED { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .badge-REJECTED { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+
+        /* 3-Step Visual Application Progress Tracker */
+        .step-tracker {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            margin-top: 12px;
+        }
+        .step-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 2;
+            flex: 1;
+        }
+        .step-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            background: #e2e8f0;
+            color: #64748b;
+            border: 2px solid #ffffff;
+        }
+        .step-circle.done {
+            background: #2563eb;
+            color: #ffffff;
+        }
+        .step-circle.selected-win {
+            background: #16a34a;
+            color: #ffffff;
+        }
+        .step-circle.rejected-fail {
+            background: #dc2626;
+            color: #ffffff;
+        }
+        .step-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-top: 4px;
+            color: #64748b;
+        }
+
+        /* Live API Inspector Console */
+        .api-inspector-bar {
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 14px;
+            border: 1px solid #334155;
+            overflow: hidden;
+        }
+        .api-json-drawer {
+            background: #020617;
+            border-top: 1px solid #1e293b;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-wrapper">
+
+    <!-- ==================== 1. LEFT SIDEBAR NAVIGATION ==================== -->
+    <aside class="app-sidebar p-3">
+        <!-- Brand Logo -->
+        <div class="d-flex align-items-center gap-3 px-2 py-2 mb-3 border-bottom border-secondary border-opacity-25 pb-3">
+            <div class="bg-primary text-white rounded-3 d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">
+                <i class="bi bi-mortarboard-fill fs-5"></i>
+            </div>
+            <div>
+                <div class="fw-bold text-white fs-5 lh-1">CampusConnect</div>
+                <span class="text-info font-mono-code" style="font-size: 0.7rem;">DRF + SimpleJWT API</span>
+            </div>
+        </div>
+
+        <!-- Logged-In User Profile Card in Sidebar -->
+        <div id="sidebarUserCard" class="p-3 rounded-3 mb-3 d-none" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span id="sidebarUsername" class="fw-bold text-white small">karthik_cse</span>
+                <span id="sidebarRoleBadge" class="badge bg-primary" style="font-size: 0.65rem;">STUDENT</span>
+            </div>
+            <div class="text-secondary small" style="font-size: 0.75rem;" id="sidebarAcademicInfo">
+                JWT Bearer Token Active
+            </div>
+        </div>
+
+        <!-- Navigation Menu (Dynamically filtered by Role) -->
+        <div class="text-uppercase text-secondary fw-bold px-2 mb-2" style="font-size: 0.68rem; letter-spacing: 0.06em;">
+            Portal Navigation
+        </div>
+
+        <nav class="d-flex flex-column gap-1 flex-grow-1" id="sidebarNav">
+            <button class="side-nav-link active" id="navBtnAuth" onclick="showView('authView', this)">
+                <i class="bi bi-shield-lock-fill"></i>
+                <span>Sign In / Register</span>
+            </button>
+
+            <button class="side-nav-link d-none" id="navBtnOverview" onclick="showView('overviewView', this)">
+                <i class="bi bi-grid-1x2-fill"></i>
+                <span>Dashboard Overview</span>
+            </button>
+
+            <button class="side-nav-link d-none" id="navBtnDrives" onclick="showView('drivesView', this)">
+                <i class="bi bi-buildings-fill"></i>
+                <span>Placement Drives</span>
+            </button>
+
+            <button class="side-nav-link d-none" id="navBtnApplications" onclick="showView('applicationsView', this)">
+                <i class="bi bi-kanban-fill"></i>
+                <span id="navApplicationsLabel">My Applications</span>
+            </button>
+
+            <button class="side-nav-link d-none" id="navBtnPostDrive" onclick="showView('postDriveView', this)">
+                <i class="bi bi-plus-square-fill"></i>
+                <span>Publish Job Drive</span>
+            </button>
+
+            <button class="side-nav-link d-none" id="navBtnSecurity" onclick="showView('securityView', this)">
+                <i class="bi bi-terminal-fill"></i>
+                <span>JWT & RBAC Test Lab</span>
+            </button>
+        </nav>
+
+        <!-- Backend Server Endpoint Indicator -->
+        <div class="mt-auto pt-3 border-top border-secondary border-opacity-25">
+            <div class="d-flex align-items-center justify-content-between small text-secondary mb-2 px-1">
+                <span>Django Server:</span>
+                <code class="text-info">127.0.0.1:8000</code>
+            </div>
+            <button id="sidebarLogoutBtn" class="btn btn-outline-danger btn-sm w-100 rounded-3 d-none" onclick="logoutUser()">
+                <i class="bi bi-box-arrow-right me-1"></i>Logout & Clear JWT
+            </button>
+        </div>
+    </aside>
+
+    <!-- ==================== 2. MAIN WORKSPACE ==================== -->
+    <main class="app-main p-3 p-lg-4">
+
+        <!-- ==================== WORKING LIVE API INSPECTOR CONSOLE ==================== -->
+        <div class="api-inspector-bar mb-4 shadow-sm">
+            <div class="d-flex flex-wrap justify-content-between align-items-center px-3 py-2.5 gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="badge bg-secondary font-mono-code" id="inspMethodBadge">READY</span>
+                    <code class="text-info fw-semibold small" id="inspEndpointText">http://127.0.0.1:8000/api/</code>
+                    <span class="badge bg-dark border border-secondary font-mono-code" id="inspStatusBadge">WAITING FOR REQUEST</span>
+                    <span class="text-secondary small font-mono-code" id="inspTimeText"></span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-secondary small d-none d-md-inline" id="inspSummaryText">Click any button to inspect live Django REST Response</span>
+                    <button class="btn btn-sm btn-outline-light py-0.5 px-2.5 font-mono-code" style="font-size: 0.75rem;" onclick="toggleInspectorDrawer()">
+                        <i class="bi bi-code-slash me-1"></i><span id="inspToggleBtnText">Show JSON Payload</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Collapsible Request / Response JSON Drawer -->
+            <div id="inspectorDrawer" class="api-json-drawer p-3 d-none">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="text-secondary font-mono-code mb-1" style="font-size: 0.72rem;">REQUEST SENT TO DJANGO (HEADERS & BODY):</div>
+                        <pre id="inspRequestJson" class="text-warning font-mono-code small mb-0" style="white-space: pre-wrap;">// No request sent yet</pre>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-secondary font-mono-code mb-1" style="font-size: 0.72rem;">RESPONSE RECEIVED FROM DJANGO REST FRAMEWORK:</div>
+                        <pre id="inspResponseJson" class="text-success font-mono-code small mb-0" style="white-space: pre-wrap;">// Waiting for response...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== VIEW 1: SIGN IN & REGISTER (`authView`) ==================== -->
+        <section id="authView" class="portal-view">
+            <div class="row g-4 align-items-stretch">
+                <!-- Sign In Card -->
+                <div class="col-lg-5">
+                    <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-primary-subtle text-primary fw-semibold small mb-3">
+                                <i class="bi bi-key-fill"></i> SimpleJWT Authentication
+                            </div>
+                            <h4 class="fw-bold mb-1">Sign In to CampusConnect</h4>
+                            <p class="text-secondary small mb-4">
+                                Authenticates against <code>POST /api/login/</code> and stores your <code>access</code> & <code>refresh</code> JWT tokens.
+                            </p>
+
+                            <form onsubmit="handleLogin(event)">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Username</label>
+                                    <input type="text" id="loginUsername" class="form-control" placeholder="e.g. karthik_cse" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Password</label>
+                                    <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label small fw-semibold">Your Account Role (Opens Matching Portal UI)</label>
+                                    <select id="loginRoleSelect" class="form-select">
+                                        <option value="STUDENT">STUDENT — Browse Drives, Apply & Track Status</option>
+                                        <option value="RECRUITER">RECRUITER — Publish Drives & Shortlist/Select</option>
+                                        <option value="ADMIN">ADMIN (TPO) — Campus Overview & Security Lab</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100 fw-semibold py-2.5 rounded-3">
+                                    <i class="bi bi-box-arrow-in-right me-1"></i>Sign In & Obtain JWT Pair
+                                </button>
+                            </form>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-top small text-secondary">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <strong>Interview Tip:</strong> Open the <strong>Show JSON Payload</strong> button in the black bar above after logging in to show your interviewer the live `access` and `refresh` tokens!
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Register Account Card -->
+                <div class="col-lg-7">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-success-subtle text-success fw-semibold small mb-3">
+                            <i class="bi bi-person-plus-fill"></i> Custom User Model (`accounts.User`)
+                        </div>
+                        <h4 class="fw-bold mb-1">Register New Campus Account</h4>
+                        <p class="text-secondary small mb-4">
+                            Calls <code>POST /api/register/</code> using <code>User.objects.create_user()</code> with PBKDF2 password hashing and academic eligibility fields.
+                        </p>
+
+                        <form onsubmit="handleRegister(event)">
+                            <div class="row g-3 mb-3">
+                                <div class="col-sm-6">
+                                    <label class="form-label small fw-semibold">Username</label>
+                                    <input type="text" id="regUsername" class="form-control" placeholder="e.g. karthik_cse" required>
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="form-label small fw-semibold">College Email</label>
+                                    <input type="email" id="regEmail" class="form-control" placeholder="karthik@jmit.ac.in" required>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-3">
+                                <div class="col-sm-6">
+                                    <label class="form-label small fw-semibold">Password (Write-Only)</label>
+                                    <input type="password" id="regPassword" class="form-control" placeholder="StrongPassword123" required>
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="form-label small fw-semibold">Role (`role` choice field)</label>
+                                    <select id="regRole" class="form-select">
+                                        <option value="STUDENT">STUDENT</option>
+                                        <option value="RECRUITER">RECRUITER</option>
+                                        <option value="ADMIN">ADMIN</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Academic Eligibility Fields for Students -->
+                            <div class="p-3 rounded-3 bg-light border mb-4">
+                                <div class="fw-semibold small text-dark mb-2">
+                                    <i class="bi bi-mortarboard text-primary me-1"></i>Academic Profile (Used by `ApplicationSerializer.validate()`)
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-sm-6">
+                                        <label class="form-label small text-secondary mb-1">Current CGPA (`0.00 - 10.00`)</label>
+                                        <input type="number" step="0.01" min="0" max="10" id="regCgpa" class="form-control" value="8.50" required>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label small text-secondary mb-1">Active Backlogs</label>
+                                        <input type="number" min="0" id="regBacklogs" class="form-control" value="0" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-success w-100 fw-semibold py-2.5 rounded-3">
+                                <i class="bi bi-check2-circle me-1"></i>Create Account (`POST /api/register/`)
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== VIEW 2: DASHBOARD OVERVIEW (`overviewView`) ==================== -->
+        <section id="overviewView" class="portal-view d-none">
+            <!-- Dynamic Welcome Banner -->
+            <div class="glass-card p-4 mb-4 border-start border-4 border-primary">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <span class="badge bg-primary-subtle text-primary mb-2" id="overviewRolePill">STUDENT PORTAL</span>
+                        <h4 class="fw-bold mb-1" id="overviewWelcomeTitle">Welcome back, karthik_cse!</h4>
+                        <p class="text-secondary small mb-0" id="overviewSubtitle">
+                            All data below is fetched live from your Django REST Framework SQLite/MySQL database.
+                        </p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="refreshAllData()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Sync with Django DB
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4 KPI Stat Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-sm-6 col-xl-3">
+                    <div class="glass-card p-3.5 d-flex align-items-center gap-3">
+                        <div class="kpi-icon bg-primary-subtle text-primary"><i class="bi bi-buildings"></i></div>
+                        <div>
+                            <div class="text-secondary small fw-medium">Active Company Drives</div>
+                            <div class="fs-4 fw-bold" id="kpiTotalDrives">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                    <div class="glass-card p-3.5 d-flex align-items-center gap-3">
+                        <div class="kpi-icon bg-info-subtle text-info"><i class="bi bi-send-check"></i></div>
+                        <div>
+                            <div class="text-secondary small fw-medium">Submitted Applications</div>
+                            <div class="fs-4 fw-bold" id="kpiTotalApps">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                    <div class="glass-card p-3.5 d-flex align-items-center gap-3">
+                        <div class="kpi-icon bg-warning-subtle text-warning"><i class="bi bi-star-fill"></i></div>
+                        <div>
+                            <div class="text-secondary small fw-medium">Shortlisted</div>
+                            <div class="fs-4 fw-bold" id="kpiShortlisted">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                    <div class="glass-card p-3.5 d-flex align-items-center gap-3">
+                        <div class="kpi-icon bg-success-subtle text-success"><i class="bi bi-trophy-fill"></i></div>
+                        <div>
+                            <div class="text-secondary small fw-medium">Selected (Offers)</div>
+                            <div class="fs-4 fw-bold" id="kpiSelected">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Applications Progress & Latest Drives -->
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold mb-0"><i class="bi bi-diagram-3-fill text-primary me-2"></i>Live Application Pipeline Tracker</h6>
+                            <button class="btn btn-sm btn-link text-decoration-none p-0" onclick="showView('applicationsView', document.getElementById('navBtnApplications'))">View All →</button>
+                        </div>
+                        <div id="overviewAppsList" class="d-flex flex-column gap-3">
+                            <!-- Populated by renderOverview() -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold mb-0"><i class="bi bi-lightning-charge-fill text-warning me-2"></i>Latest Placement Drives</h6>
+                            <button class="btn btn-sm btn-link text-decoration-none p-0" onclick="showView('drivesView', document.getElementById('navBtnDrives'))">Browse All →</button>
+                        </div>
+                        <div id="overviewDrivesList" class="d-flex flex-column gap-2.5">
+                            <!-- Populated by renderOverview() -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== VIEW 3: PLACEMENT DRIVES (`drivesView`) ==================== -->
+        <section id="drivesView" class="portal-view d-none">
+            <div class="glass-card p-4 mb-4">
+                <div class="row g-3 align-items-center justify-content-between">
+                    <div class="col-md-5">
+                        <h5 class="fw-bold mb-1">Company Placement Drives (`GET /api/drive/`)</h5>
+                        <p class="text-secondary small mb-0">
+                            Click <strong>Apply Now</strong> to trigger <code>POST /api/application/</code> and run your serializer's CGPA & backlog checks.
+                        </p>
+                    </div>
+                    <div class="col-md-7 d-flex flex-wrap gap-2 justify-content-md-end">
+                        <div class="input-group input-group-sm" style="max-width: 260px;">
+                            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                            <input type="text" id="driveSearchInput" class="form-control" placeholder="Search company or role..." oninput="renderDrivesGrid()">
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary rounded-3" onclick="fetchDrives()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Refresh Drives
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="drivesGridContainer" class="row g-3">
+                <!-- Populated by renderDrivesGrid() -->
+            </div>
+        </section>
+
+        <!-- ==================== VIEW 4: APPLICATIONS & CANDIDATE PIPELINE (`applicationsView`) ==================== -->
+        <section id="applicationsView" class="portal-view d-none">
+            <div class="glass-card p-4 mb-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <h5 class="fw-bold mb-1" id="appsViewHeading">Applications Tracker (`GET /api/application/`)</h5>
+                        <p class="text-secondary small mb-0">
+                            <span id="appsViewHelpText">Track your application decisions here. Status refreshes automatically.</span>
+                        </p>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <select id="appStatusFilter" class="form-select form-select-sm" style="width: auto;" onchange="renderApplicationsTable()">
+                            <option value="ALL">All Statuses</option>
+                            <option value="APPLIED">APPLIED</option>
+                            <option value="SHORTLISTED">SHORTLISTED</option>
+                            <option value="SELECTED">SELECTED</option>
+                            <option value="REJECTED">REJECTED</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-primary rounded-3" onclick="fetchApplications()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Refresh List
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-0 overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small text-uppercase text-secondary">
+                            <tr>
+                                <th class="ps-4">App ID</th>
+                                <th>Student</th>
+                                <th>Company & Role</th>
+                                <th>Current Status</th>
+                                <th>3-Step Progress</th>
+                                <th>Applied On</th>
+                                <th class="text-end pe-4">Recruiter Actions (`PATCH`)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="applicationsTableBody">
+                            <!-- Populated by renderApplicationsTable() -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== VIEW 5: PUBLISH NEW DRIVE (`postDriveView`) ==================== -->
+        <section id="postDriveView" class="portal-view d-none">
+            <div class="row justify-content-center">
+                <div class="col-lg-7">
+                    <div class="glass-card p-4">
+                        <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-primary-subtle text-primary fw-semibold small mb-3">
+                            <i class="bi bi-shield-check"></i> Protected by `IsRecruiterRole`
+                        </div>
+                        <h4 class="fw-bold mb-1">Publish New Company Placement Drive</h4>
+                        <p class="text-secondary small mb-4">
+                            Sends <code>POST /api/drive/</code>. If you click this while logged in as a <strong>Student</strong>, Django's <code>IsRecruiterRole</code> permission class will block it with <code>403 Forbidden</code> in the API Inspector above!
+                        </p>
+
+                        <form onsubmit="handleCreateDrive(event)">
+                            <div class="row g-3 mb-3">
+                                <div class="col-sm-6">
+                                    <label class="form-label small fw-semibold">Company Name</label>
+                                    <input type="text" id="driveCompany" class="form-control" placeholder="e.g. AppVin Technologies" required>
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="form-label small fw-semibold">Job Role Title</label>
+                                    <input type="text" id="driveRole" class="form-control" placeholder="e.g. Python Django Developer" required>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-4">
+                                <div class="col-sm-4">
+                                    <label class="form-label small fw-semibold">Package (LPA)</label>
+                                    <input type="number" step="0.01" id="drivePackage" class="form-control" value="8.00" required>
+                                </div>
+                                <div class="col-sm-4">
+                                    <label class="form-label small fw-semibold">Minimum CGPA</label>
+                                    <input type="number" step="0.01" id="driveMinCgpa" class="form-control" value="7.50" required>
+                                </div>
+                                <div class="col-sm-4">
+                                    <label class="form-label small fw-semibold">Max Allowed Backlogs</label>
+                                    <input type="number" min="0" id="driveMaxBacklogs" class="form-control" value="0" required>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 fw-semibold py-2.5 rounded-3">
+                                <i class="bi bi-cloud-upload-fill me-1"></i>Publish Drive (`POST /api/drive/`)
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== VIEW 6: JWT & RBAC SECURITY LAB (`securityView`) ==================== -->
+        <section id="securityView" class="portal-view d-none">
+            <div class="row g-4">
+                <!-- Decoded JWT Inspector -->
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
+                        <h5 class="fw-bold mb-1"><i class="bi bi-key-fill text-primary me-2"></i>Live JWT Token Decoder & Refresh</h5>
+                        <p class="text-secondary small mb-3">
+                            Inspects the real Base64 payload inside your stored <code>access_token</code> and tests <code>POST /api/token/refresh/</code>.
+                        </p>
+
+                        <div class="p-3 rounded-3 bg-dark text-light font-mono-code small mb-3">
+                            <div class="text-secondary mb-1" style="font-size: 0.7rem;">DECODED JWT ACCESS TOKEN PAYLOAD:</div>
+                            <pre id="decodedJwtBox" class="mb-0 text-info" style="white-space: pre-wrap;">// Log in to decode JWT claims</pre>
+                        </div>
+
+                        <button class="btn btn-outline-primary w-100 fw-semibold" onclick="handleRefreshToken()">
+                            <i class="bi bi-arrow-repeat me-1"></i>Test Silent Token Refresh (`POST /api/token/refresh/`)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- RBAC Endpoint Tester -->
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
+                        <h5 class="fw-bold mb-1"><i class="bi bi-shield-lock-fill text-danger me-2"></i>RBAC Role Zone Tester (`200` vs `403`)</h5>
+                        <p class="text-secondary small mb-3">
+                            Click these buttons during your interview to demonstrate your custom permission classes (`IsStudentRole`, `IsRecruiterRole`, `IsAdminRole`) live in the top API Inspector!
+                        </p>
+
+                        <div class="d-flex flex-column gap-2.5">
+                            <button class="btn btn-outline-dark text-start d-flex justify-content-between align-items-center p-3 rounded-3" onclick="testRoleZone('/api/student-zone/')">
+                                <div>
+                                    <div class="fw-bold">Test Student Zone</div>
+                                    <code class="small text-secondary">GET /api/student-zone/ (Requires IsStudentRole)</code>
+                                </div>
+                                <span class="badge bg-primary">Test Endpoint →</span>
+                            </button>
+
+                            <button class="btn btn-outline-dark text-start d-flex justify-content-between align-items-center p-3 rounded-3" onclick="testRoleZone('/api/recruiter-zone/')">
+                                <div>
+                                    <div class="fw-bold">Test Recruiter Zone</div>
+                                    <code class="small text-secondary">GET /api/recruiter-zone/ (Requires IsRecruiterRole)</code>
+                                </div>
+                                <span class="badge bg-success">Test Endpoint →</span>
+                            </button>
+
+                            <button class="btn btn-outline-dark text-start d-flex justify-content-between align-items-center p-3 rounded-3" onclick="testRoleZone('/api/admin-zone/')">
+                                <div>
+                                    <div class="fw-bold">Test Admin Zone</div>
+                                    <code class="small text-secondary">GET /api/admin-zone/ (Requires IsAdminRole)</code>
+                                </div>
+                                <span class="badge bg-danger">Test Endpoint →</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- ==================== 3. CLEAN, STRUCTURED JAVASCRIPT (100% REAL DJANGO API) ==================== -->
+<script>
+    const API_BASE = "http://127.0.0.1:8000";
+
+    // Application State in Memory
+    let appState = {
+        accessToken: null,
+        refreshToken: null,
+        username: null,
+        role: "STUDENT",
+        drives: [],
+        applications: []
+    };
+
+    // ============================================================================
+    // 1. CENTRAL API HELPER + LIVE API INSPECTOR (ALWAYS WORKS & LOGS EVERYTHING)
+    // ============================================================================
+    async function callDjangoApi(endpoint, method = "GET", bodyObj = null, requiresAuth = true) {
+        const startTime = performance.now();
+        const headers = { "Content-Type": "application/json" };
+
+        if (requiresAuth && appState.accessToken) {
+            headers["Authorization"] = `Bearer ${appState.accessToken}`;
+        }
+
+        const fetchOptions = { method, headers };
+        if (bodyObj) {
+            fetchOptions.body = JSON.stringify(bodyObj);
+        }
+
+        // Show Request in Inspector Drawer immediately
+        document.getElementById("inspMethodBadge").textContent = method;
+        document.getElementById("inspEndpointText").textContent = endpoint;
+        document.getElementById("inspRequestJson").textContent = JSON.stringify(
+            { headers, body: bodyObj || "(No Body)" },
+            null,
+            2
+        );
+
+        try {
+            let response = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
+
+            // Automatic JWT Refresh if Access Token expired (401)
+            if (response.status === 401 && requiresAuth && appState.refreshToken && endpoint !== "/api/token/refresh/") {
+                const refreshRes = await fetch(`${API_BASE}/api/token/refresh/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ refresh: appState.refreshToken })
+                });
+                if (refreshRes.ok) {
+                    const refreshData = await refreshRes.json();
+                    appState.accessToken = refreshData.access;
+                    headers["Authorization"] = `Bearer ${appState.accessToken}`;
+                    response = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
+                }
+            }
+
+            const elapsedMs = Math.round(performance.now() - startTime);
+            let data = {};
+            const text = await response.text();
+            try {
+                data = text ? JSON.parse(text) : { message: "Success (Empty Body)" };
+            } catch (e) {
+                data = { raw_response: text.slice(0, 300) };
+            }
+
+            updateInspectorUI(method, endpoint, response.status, elapsedMs, data);
+            return { ok: response.ok, status: response.status, data };
+
+        } catch (networkErr) {
+            const elapsedMs = Math.round(performance.now() - startTime);
+            const errPayload = {
+                error: "Cannot reach http://127.0.0.1:8000",
+                reason: "Make sure 'python manage.py runserver' is running and you opened this HTML file locally in your browser."
+            };
+            updateInspectorUI(method, endpoint, "OFFLINE / CORS", elapsedMs, errPayload);
+            return { ok: false, status: 0, data: errPayload };
+        }
+    }
+
+    function updateInspectorUI(method, endpoint, status, elapsedMs, responseData) {
+        const statusBadge = document.getElementById("inspStatusBadge");
+        const summaryText = document.getElementById("inspSummaryText");
+        document.getElementById("inspTimeText").textContent = `${elapsedMs} ms`;
+        document.getElementById("inspResponseJson").textContent = JSON.stringify(responseData, null, 2);
+
+        if (status >= 200 && status < 300) {
+            statusBadge.className = "badge bg-success font-mono-code";
+            statusBadge.textContent = `${status} OK`;
+            summaryText.className = "text-success small d-none d-md-inline fw-semibold";
+            summaryText.textContent = `Success from ${endpoint}`;
+        } else if (status === 400) {
+            statusBadge.className = "badge bg-warning text-dark font-mono-code";
+            statusBadge.textContent = `400 BAD REQUEST`;
+            const msg = responseData.non_field_errors ? responseData.non_field_errors[0] : JSON.stringify(responseData);
+            summaryText.className = "text-warning small d-none d-md-inline fw-semibold";
+            summaryText.textContent = msg;
+            // Automatically open JSON drawer on 400/403 so user immediately sees the validation error!
+            document.getElementById("inspectorDrawer").classList.remove("d-none");
+            document.getElementById("inspToggleBtnText").textContent = "Hide JSON Payload";
+        } else if (status === 401 || status === 403) {
+            statusBadge.className = "badge bg-danger font-mono-code";
+            statusBadge.textContent = `${status} FORBIDDEN / UNAUTH`;
+            summaryText.className = "text-danger small d-none d-md-inline fw-semibold";
+            summaryText.textContent = responseData.detail || "Blocked by DRF Permission Class";
+            document.getElementById("inspectorDrawer").classList.remove("d-none");
+            document.getElementById("inspToggleBtnText").textContent = "Hide JSON Payload";
+        } else {
+            statusBadge.className = "badge bg-danger font-mono-code";
+            statusBadge.textContent = `${status}`;
+            summaryText.className = "text-danger small d-none d-md-inline";
+            summaryText.textContent = responseData.error || "Server Error";
+            document.getElementById("inspectorDrawer").classList.remove("d-none");
+        }
+    }
+
+    function toggleInspectorDrawer() {
+        const drawer = document.getElementById("inspectorDrawer");
+        const btnText = document.getElementById("inspToggleBtnText");
+        const isHidden = drawer.classList.toggle("d-none");
+        btnText.textContent = isHidden ? "Show JSON Payload" : "Hide JSON Payload";
+    }
+
+    // ============================================================================
+    // 2. AUTHENTICATION: REGISTER & LOGIN
+    // ============================================================================
+    async function handleRegister(event) {
+        event.preventDefault();
+        const payload = {
+            username: document.getElementById("regUsername").value.trim(),
+            email: document.getElementById("regEmail").value.trim(),
+            password: document.getElementById("regPassword").value,
+            role: document.getElementById("regRole").value,
+            cgpa: parseFloat(document.getElementById("regCgpa").value),
+            backlogs: parseInt(document.getElementById("regBacklogs").value, 10)
+        };
+
+        const res = await callDjangoApi("/api/register/", "POST", payload, false);
+        if (res.ok) {
+            document.getElementById("loginUsername").value = payload.username;
+            document.getElementById("loginPassword").value = payload.password;
+            document.getElementById("loginRoleSelect").value = payload.role;
+        }
+    }
+
+    async function handleLogin(event) {
+        event.preventDefault();
+        const username = document.getElementById("loginUsername").value.trim();
+        const password = document.getElementById("loginPassword").value;
+        const selectedRole = document.getElementById("loginRoleSelect").value;
+
+        const res = await callDjangoApi("/api/login/", "POST", { username, password }, false);
+        if (res.ok && res.data.access) {
+            appState.accessToken = res.data.access;
+            appState.refreshToken = res.data.refresh;
+            appState.username = username;
+            appState.role = await resolveAuthenticatedRole() || selectedRole;
+
+            setupAuthenticatedUI();
+            await refreshAllData();
+            showView("overviewView", document.getElementById("navBtnOverview"));
+        }
+    }
+
+    async function resolveAuthenticatedRole() {
+        const roleChecks = [
+            ["STUDENT", "/api/student-zone/"],
+            ["RECRUITER", "/api/recruiter-zone/"],
+            ["ADMIN", "/api/admin-zone/"]
+        ];
+        for (const [role, endpoint] of roleChecks) {
+            const result = await callDjangoApi(endpoint, "GET");
+            if (result.ok) return role;
+        }
+        return null;
+    }
+
+    function canReviewApplications() {
+        return appState.role === "RECRUITER" || appState.role === "ADMIN";
+    }
+
+    function displayApplicationStatus(status) {
+        return status === "SELECTED" ? "FINALIZED / SELECTED" : status;
+    }
+
+    function setupAuthenticatedUI() {
+        // Show user card & navigation links
+        document.getElementById("sidebarUserCard").classList.remove("d-none");
+        document.getElementById("sidebarLogoutBtn").classList.remove("d-none");
+        document.getElementById("navBtnAuth").classList.add("d-none");
+
+        document.getElementById("navBtnOverview").classList.remove("d-none");
+        document.getElementById("navBtnDrives").classList.remove("d-none");
+        document.getElementById("navBtnApplications").classList.remove("d-none");
+        document.getElementById("navBtnPostDrive").classList.remove("d-none");
+        document.getElementById("navBtnSecurity").classList.remove("d-none");
+
+        document.getElementById("sidebarUsername").textContent = appState.username;
+        document.getElementById("sidebarRoleBadge").textContent = appState.role;
+        document.getElementById("overviewRolePill").textContent = `${appState.role} PORTAL`;
+        document.getElementById("overviewWelcomeTitle").textContent = `Welcome, ${appState.username}!`;
+        document.getElementById("navApplicationsLabel").textContent =
+            appState.role === "STUDENT" ? "My Applications" : "Candidate Pipeline";
+        document.getElementById("appsViewHelpText").textContent = appState.role === "STUDENT"
+            ? "Your status refreshes automatically after the recruiter or TPO updates your application."
+            : "Review applications and update each student's status. Students see the latest decision in their tracker.";
+
+        decodeJwtTokenDisplay();
+    }
+
+    function logoutUser() {
+        appState.accessToken = null;
+        appState.refreshToken = null;
+        appState.username = null;
+        appState.drives = [];
+        appState.applications = [];
+
+        document.getElementById("sidebarUserCard").classList.add("d-none");
+        document.getElementById("sidebarLogoutBtn").classList.add("d-none");
+        document.getElementById("navBtnAuth").classList.remove("d-none");
+        ["navBtnOverview", "navBtnDrives", "navBtnApplications", "navBtnPostDrive", "navBtnSecurity"].forEach(id => {
+            document.getElementById(id).classList.add("d-none");
+        });
+
+        showView("authView", document.getElementById("navBtnAuth"));
+    }
+
+    // ============================================================================
+    // 3. DRIVES & APPLICATIONS CRUD (REAL DJANGO ENDPOINTS)
+    // ============================================================================
+    async function refreshAllData() {
+        await fetchDrives();
+        await fetchApplications();
+        renderOverview();
+    }
+
+    async function fetchDrives() {
+        const res = await callDjangoApi("/api/drive/", "GET");
+        if (res.ok && Array.isArray(res.data)) {
+            appState.drives = res.data;
+            renderDrivesGrid();
+            renderOverview();
+        }
+    }
+
+    async function fetchApplications() {
+        const res = await callDjangoApi("/api/application/", "GET");
+        if (res.ok && Array.isArray(res.data)) {
+            appState.applications = res.data;
+            renderDrivesGrid();
+            renderApplicationsTable();
+            renderOverview();
+        }
+    }
+
+    async function handleApplyDrive(driveId) {
+        const res = await callDjangoApi("/api/application/", "POST", { drive: driveId });
+        if (res.status === 201) {
+            await fetchApplications();
+            renderDrivesGrid();
+            renderOverview();
+        }
+    }
+
+    async function handleCreateDrive(event) {
+        event.preventDefault();
+        const payload = {
+            company_name: document.getElementById("driveCompany").value.trim(),
+            role_title: document.getElementById("driveRole").value.trim(),
+            package_lpa: parseFloat(document.getElementById("drivePackage").value),
+            min_cgpa: parseFloat(document.getElementById("driveMinCgpa").value),
+            max_backlogs: parseInt(document.getElementById("driveMaxBacklogs").value, 10)
+        };
+
+        const res = await callDjangoApi("/api/drive/", "POST", payload);
+        if (res.status === 201) {
+            event.target.reset();
+            await fetchDrives();
+            showView("drivesView", document.getElementById("navBtnDrives"));
+        }
+    }
+
+    async function handleDeleteDrive(driveId) {
+        const res = await callDjangoApi(`/api/drive/${driveId}/`, "DELETE");
+        if (res.ok || res.status === 204) {
+            await fetchDrives();
+        }
+    }
+
+    async function handleUpdateAppStatus(appId, newStatus) {
+        if (!canReviewApplications()) return;
+        const res = await callDjangoApi(`/api/application/${appId}/`, "PATCH", { status: newStatus });
+        if (res.ok) {
+            await fetchApplications();
+        }
+    }
+
+    // ============================================================================
+    // 4. RENDER UI VIEWS (OVERVIEW, DRIVES CARDS, 3-STEP TRACKER)
+    // ============================================================================
+    function buildStepTrackerHtml(status) {
+        const isShortlisted = status === "SHORTLISTED" || status === "SELECTED";
+        const isSelected = status === "SELECTED";
+        const isRejected = status === "REJECTED";
+
+        return `
+            <div class="step-tracker">
+                <div class="step-node">
+                    <div class="step-circle done">1</div>
+                    <span class="step-label">Applied</span>
+                </div>
+                <div class="step-node">
+                    <div class="step-circle ${isRejected ? 'rejected-fail' : (isShortlisted ? 'done' : '')}">
+                        ${isRejected ? '✕' : '2'}
+                    </div>
+                    <span class="step-label">${isRejected ? 'Rejected' : 'Shortlisted'}</span>
+                </div>
+                <div class="step-node">
+                    <div class="step-circle ${isSelected ? 'selected-win' : ''}">
+                        ${isSelected ? '✓' : '3'}
+                    </div>
+                    <span class="step-label">Selected</span>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderOverview() {
+        document.getElementById("kpiTotalDrives").textContent = appState.drives.length;
+        document.getElementById("kpiTotalApps").textContent = appState.applications.length;
+        document.getElementById("kpiShortlisted").textContent =
+            appState.applications.filter(a => a.status === "SHORTLISTED").length;
+        document.getElementById("kpiSelected").textContent =
+            appState.applications.filter(a => a.status === "SELECTED").length;
+
+        // Render Recent Applications with 3-Step Visual Progress
+        const appsBox = document.getElementById("overviewAppsList");
+        if (appState.applications.length === 0) {
+            appsBox.innerHTML = `<div class="text-center text-secondary py-4 small">No applications submitted yet. Go to <strong>Placement Drives</strong> and click Apply!</div>`;
+        } else {
+            appsBox.innerHTML = appState.applications.slice(0, 4).map(app => `
+                <div class="p-3 rounded-3 border bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="fw-bold">${app.company_name}</span>
+                            <span class="text-secondary small ms-2">${app.role_title}</span>
+                        </div>
+                        <span class="badge rounded-pill badge-${app.status} px-2.5 py-1">${displayApplicationStatus(app.status)}</span>
+                    </div>
+                    ${buildStepTrackerHtml(app.status)}
+                </div>
+            `).join("");
+        }
+
+        // Render Latest Drives
+        const drivesBox = document.getElementById("overviewDrivesList");
+        if (appState.drives.length === 0) {
+            drivesBox.innerHTML = `<div class="text-center text-secondary py-4 small">No placement drives in database yet.</div>`;
+        } else {
+            drivesBox.innerHTML = appState.drives.slice(0, 4).map(d => `
+                <div class="p-3 rounded-3 border d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-bold">${d.company_name}</div>
+                        <div class="text-secondary small">${d.role_title} • Min CGPA: ${d.min_cgpa}</div>
+                    </div>
+                    <span class="badge bg-success-subtle text-success fw-bold">${d.package_lpa} LPA</span>
+                </div>
+            `).join("");
+        }
+    }
+
+    function renderDrivesGrid() {
+        const search = (document.getElementById("driveSearchInput")?.value || "").toLowerCase();
+        const filtered = appState.drives.filter(d =>
+            d.company_name.toLowerCase().includes(search) ||
+            d.role_title.toLowerCase().includes(search)
+        );
+
+        const container = document.getElementById("drivesGridContainer");
+        if (filtered.length === 0) {
+            container.innerHTML = `<div class="col-12"><div class="glass-card p-5 text-center text-secondary">No placement drives found in database.</div></div>`;
+            return;
+        }
+
+        container.innerHTML = filtered.map(drive => {
+            const driveApplications = appState.applications.filter(a => String(a.drive) === String(drive.id));
+            const alreadyApplied = driveApplications.some(a => a.student_name === appState.username);
+
+            return `
+                <div class="col-md-6 col-xl-4">
+                    <div class="glass-card drive-card p-4 h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <span class="badge bg-light text-secondary border mb-1">Drive #${drive.id}</span>
+                                    <h5 class="fw-bold mb-0">${drive.company_name}</h5>
+                                </div>
+                                <span class="badge bg-success-subtle text-success fs-6 px-2.5 py-1.5">${drive.package_lpa} LPA</span>
+                            </div>
+                            <p class="text-primary fw-medium small mb-3">${drive.role_title}</p>
+
+                            <div class="p-3 rounded-3 bg-light border small mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-secondary">${canReviewApplications() ? "Student applicants:" : "Your application:"}</span>
+                                    <span class="badge bg-primary-subtle text-primary fw-bold">${canReviewApplications() ? driveApplications.length : (alreadyApplied ? "Applied" : "Not applied")}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-secondary">Min CGPA Criteria:</span>
+                                    <span class="fw-bold">${drive.min_cgpa}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-secondary">Max Allowed Backlogs:</span>
+                                    <span class="fw-bold">${drive.max_backlogs}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span class="text-secondary">Recruiter:</span>
+                                    <span class="font-mono-code">${drive.posted_by}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button class="btn ${alreadyApplied ? 'btn-outline-secondary' : 'btn-primary'} w-100 fw-semibold btn-sm py-2 rounded-3"
+                                    onclick="handleApplyDrive(${drive.id})">
+                                <i class="bi ${alreadyApplied ? 'bi-check2-all' : 'bi-send-fill'} me-1"></i>
+                                ${alreadyApplied ? 'Applied (Click to Test Duplicate 400)' : 'Apply Now (`POST /api/application/`)'}
+                            </button>
+                            ${canReviewApplications() ? `
+                                <button class="btn btn-outline-danger btn-sm px-2.5 rounded-3" title="Delete Drive" onclick="handleDeleteDrive(${drive.id})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function renderApplicationsTable() {
+        const filterStatus = document.getElementById("appStatusFilter").value;
+        const list = filterStatus === "ALL"
+            ? appState.applications
+            : appState.applications.filter(a => a.status === filterStatus);
+
+        const tbody = document.getElementById("applicationsTableBody");
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-secondary py-5">No applications match the current filter.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = list.map(app => `
+            <tr>
+                <td class="ps-4 fw-bold font-mono-code">#${app.id}</td>
+                <td>
+                    <span class="fw-semibold">${app.student_name}</span>
+                </td>
+                <td>
+                    <div class="fw-bold">${app.company_name}</div>
+                    <div class="text-secondary small">${app.role_title}</div>
+                </td>
+                <td>
+                    <span class="badge rounded-pill badge-${app.status} px-3 py-1.5">${displayApplicationStatus(app.status)}</span>
+                </td>
+                <td style="min-width: 190px;">
+                    ${buildStepTrackerHtml(app.status)}
+                </td>
+                <td class="small text-secondary">
+                    ${app.applied_at ? new Date(app.applied_at).toLocaleDateString() : 'Today'}
+                </td>
+                <td class="text-end pe-4">
+                    ${canReviewApplications() ? renderApplicationActions(app) : `<span class="text-secondary small">Student view</span>`}
+                </td>
+            </tr>
+        `).join("");
+    }
+
+    function renderApplicationActions(app) {
+        if (app.status === "APPLIED") {
+            return `<div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-warning text-dark fw-semibold" onclick="handleUpdateAppStatus(${app.id}, 'SHORTLISTED')">Shortlist</button>
+                <button class="btn btn-outline-danger fw-semibold" onclick="handleUpdateAppStatus(${app.id}, 'REJECTED')">Reject</button>
+            </div>`;
+        }
+        if (app.status === "SHORTLISTED") {
+            return `<div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-success fw-semibold" onclick="handleUpdateAppStatus(${app.id}, 'SELECTED')">Finalize / Select</button>
+                <button class="btn btn-outline-danger fw-semibold" onclick="handleUpdateAppStatus(${app.id}, 'REJECTED')">Reject</button>
+            </div>`;
+        }
+        return `<span class="text-secondary small">Decision finalized</span>`;
+    }
+
+    // ============================================================================
+    // 5. JWT & RBAC SECURITY LAB HELPERS
+    // ============================================================================
+    function decodeJwtTokenDisplay() {
+        const box = document.getElementById("decodedJwtBox");
+        if (!appState.accessToken) {
+            box.textContent = "// Not logged in";
+            return;
+        }
+        try {
+            const payloadBase64 = appState.accessToken.split(".")[1];
+            const decodedJson = JSON.parse(atob(payloadBase64));
+            if (decodedJson.exp) {
+                decodedJson.expires_at_readable = new Date(decodedJson.exp * 1000).toLocaleTimeString();
+            }
+            box.textContent = JSON.stringify(decodedJson, null, 2);
+        } catch (e) {
+            box.textContent = "Valid JWT Token stored.";
+        }
+    }
+
+    async function handleRefreshToken() {
+        if (!appState.refreshToken) return;
+        const res = await callDjangoApi("/api/token/refresh/", "POST", { refresh: appState.refreshToken }, false);
+        if (res.ok && res.data.access) {
+            appState.accessToken = res.data.access;
+            decodeJwtTokenDisplay();
+        }
+    }
+
+    async function testRoleZone(endpoint) {
+        await callDjangoApi(endpoint, "GET");
+    }
+
+    function showView(viewId, navBtn) {
+        document.querySelectorAll(".portal-view").forEach(v => v.classList.add("d-none"));
+        document.getElementById(viewId).classList.remove("d-none");
+
+        document.querySelectorAll("#sidebarNav .side-nav-link").forEach(b => b.classList.remove("active"));
+        if (navBtn) navBtn.classList.add("active");
+    }
+
+    // Keep the student's tracker current when a recruiter or TPO changes a decision.
+    window.setInterval(() => {
+        if (appState.accessToken && appState.role === "STUDENT") fetchApplications();
+    }, 15000);
+</script>
+</body>
+</html>

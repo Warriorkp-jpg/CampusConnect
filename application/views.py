@@ -2,7 +2,14 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from .models import Application
 from .serializers import ApplicationSerializer
-from accounts.permissions import IsStudentRole, IsRecruiterRole
+from accounts.permissions import IsStudentRole, IsRecruiterRole, IsAdminRole
+
+
+class IsRecruiterOrAdminRole(IsRecruiterRole):
+    """Allow application decisions from recruiters and TPO/admin users."""
+
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) or IsAdminRole().has_permission(request, view)
 
 
 class ApplicationViewSet(viewsets.ModelViewSet):
@@ -22,7 +29,8 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return [IsStudentRole()]
         elif self.action in ['update', 'partial_update', 'destroy']:
-            return [IsRecruiterRole()]
+            # Recruiters and admins can review applications and update decisions.
+            return [IsRecruiterOrAdminRole()]
         return [IsAuthenticated()]
 
     # 3. Automatically attach the logged-in Student when saving

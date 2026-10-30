@@ -15,6 +15,7 @@ Designed with an API-first architecture, it digitizes the campus recruitment lif
   * Student CGPA meets or exceeds `drive.min_cgpa`.
   * Student active backlogs do not exceed `drive.max_backlogs`.
   * Duplicate application prevention at both the Serializer and Database Schema levels (`unique_together`).
+* **Application Decision Workflow:** New applications always start as `APPLIED`; reviewers must shortlist before selecting, may reject at either review stage, and cannot change a finalized or rejected decision. The backend validates these transitions for API requests as well as the portal UI.
 * **Strict Data Isolation:** Overridden `get_queryset()` ensures students can only view their own applications while recruiters and admins can oversee all submissions.
 * **Interactive Client Portal (`campusconnect_frontend_portal.html`):** Responsive Bootstrap 5 frontend utilizing the JavaScript `fetch()` API, `Authorization: Bearer` headers, and CORS middleware.
 

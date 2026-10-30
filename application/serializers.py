@@ -3,6 +3,13 @@ from .models import Application
 
 
 class ApplicationSerializer(serializers.ModelSerializer):
+    STATUS_TRANSITIONS = {
+        'APPLIED': {'SHORTLISTED', 'REJECTED'},
+        'SHORTLISTED': {'SELECTED', 'REJECTED'},
+        'SELECTED': set(),
+        'REJECTED': set(),
+    }
+
     # Read-only fields so the student only has to send {"drive": 1} in Postman!
     student_name = serializers.ReadOnlyField(source='student.username')
     company_name = serializers.ReadOnlyField(source='drive.company_name')
@@ -21,9 +28,25 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'applied_at',
         ]
         # The student cannot fake their own ID or manually set status to 'SELECTED'!
-        read_only_fields = ['student', 'status', 'applied_at']
+        read_only_fields = ['student', 'applied_at']
 
     def validate(self, data):
+        # Status-only PATCH requests from recruiters/admins must not rerun
+        # application eligibility checks or require the drive field.
+        if self.instance is not None:
+            next_status = data.get('status')
+            if next_status and next_status != self.instance.status:
+                allowed_statuses = self.STATUS_TRANSITIONS[self.instance.status]
+                if next_status not in allowed_statuses:
+                    allowed_text = ', '.join(sorted(allowed_statuses)) or 'no further changes'
+                    raise serializers.ValidationError({
+                        'status': (
+                            f"Cannot change an application from {self.instance.status} "
+                            f"to {next_status}. Allowed next status: {allowed_text}."
+                        )
+                    })
+            return data
+
         # 1. Grab the logged-in student from the request context
         student = self.context['request'].user
         drive = data['drive']
@@ -47,3 +70,11 @@ class ApplicationSerializer(serializers.ModelSerializer):
             )
 
         return data
+
+    def get_fields(self):
+        fields = super().get_fields()
+        # The student creates an APPLIED record only; reviewer decisions are
+        # writable on updates, where the viewset enforces recruiter/admin role.
+        if self.instance is None:
+            fields['status'].read_only = True
+        return fields
