@@ -28,7 +28,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
         read_only_fields = (
             'id', 'student', 'student_name', 'student_roll_number', 'student_email',
             'student_cgpa', 'student_backlogs', 'company_name', 'role_title',
-            'status', 'applied_at'
+            'applied_at'
         )
 
     def validate(self, attrs):
