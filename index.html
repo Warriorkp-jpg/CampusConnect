@@ -328,7 +328,7 @@
 
                         <div class="mt-4 pt-3 border-top small text-secondary">
                             <i class="bi bi-info-circle me-1"></i>
-                            <strong>Interview Tip:</strong> Open the <strong>Show JSON Payload</strong> button in the black bar above after logging in to show your interviewer the live `access` and `refresh` tokens!
+                            <!-- <strong>Interview Tip:</strong> Open the <strong>Show JSON Payload</strong> button in the black bar above after logging in to show your interviewer the live `access` and `refresh` tokens! -->
                         </div>
                     </div>
                 </div>
@@ -807,7 +807,7 @@
             cgpa: parseFloat(document.getElementById("regCgpa").value),
             backlogs: parseInt(document.getElementById("regBacklogs").value, 10)
         };
-
+// yesyydhkjhj
         const res = await callDjangoApi("/api/register/", "POST", payload, false);
         if (res.ok) {
             document.getElementById("loginUsername").value = payload.username;
