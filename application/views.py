@@ -1,38 +1,51 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from django.db import IntegrityError, transaction
+from accounts.permissions import IsStudentRole, IsApprovedRecruiter, IsTPORole
 from .models import Application
 from .serializers import ApplicationSerializer
-from accounts.permissions import IsStudentRole, IsRecruiterRole, IsAdminRole
 
 
-class IsRecruiterOrAdminRole(IsRecruiterRole):
-    """Allow application decisions from recruiters and TPO/admin users."""
-
+class IsApplicationReviewer(IsApprovedRecruiter):
     def has_permission(self, request, view):
-        return super().has_permission(request, view) or IsAdminRole().has_permission(request, view)
+        return super().has_permission(request, view) or IsTPORole().has_permission(request, view)
 
 
 class ApplicationViewSet(viewsets.ModelViewSet):
     serializer_class = ApplicationSerializer
 
-    # 1. Data Isolation: Students only see their own applications!
     def get_queryset(self):
         user = self.request.user
-        queryset = Application.objects.select_related('student', 'drive').all()
-        
+        base = Application.objects.select_related('student', 'drive', 'drive__posted_by')
+        if not user.is_authenticated:
+            return Application.objects.none()
         if user.role == 'STUDENT':
-            return queryset.filter(student=user)
-        return queryset
+            return base.filter(student=user)
+        if user.role == 'TPO':
+            return base
+        if user.role == 'RECRUITER' and user.recruiter_status == 'APPROVED':
+            return base.filter(drive__posted_by=user)
+        return Application.objects.none()
 
-    # 2. Role Permissions: ONLY Students can apply (create)
     def get_permissions(self):
         if self.action == 'create':
             return [IsStudentRole()]
-        elif self.action in ['update', 'partial_update', 'destroy']:
-            # Recruiters and admins can review applications and update decisions.
-            return [IsRecruiterOrAdminRole()]
+        if self.action in ('update', 'partial_update'):
+            return [IsApplicationReviewer()]
+        if self.action == 'destroy':
+            return [IsTPORole()]
         return [IsAuthenticated()]
 
-    # 3. Automatically attach the logged-in Student when saving
     def perform_create(self, serializer):
-        serializer.save(student=self.request.user)
+        try:
+            with transaction.atomic():
+                serializer.save(student=self.request.user)
+        except IntegrityError:
+            raise ValidationError({'drive': 'You have already applied to this placement drive.'})
+
+    def perform_update(self, serializer):
+        if self.request.user.role == 'RECRUITER':
+            if serializer.instance.drive.posted_by_id != self.request.user.id:
+                raise PermissionDenied('You can only review applications to your own drives.')
+        serializer.save()

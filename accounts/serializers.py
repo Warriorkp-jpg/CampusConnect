@@ -1,30 +1,135 @@
-from rest_framework import serializers
 from django.contrib.auth import get_user_model
-
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from .models import StudentRoster
 
 User = get_user_model()
 
-class RegisterSerializer(serializers.ModelSerializer):
-    
-    # send password in POST , and never include to JSON respoone
-    password = serializers.CharField(write_only = True)
-    
-    
+
+class StudentRegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'role', 'cgpa', 'backlogs']
-    
+        fields = ('roll_number', 'email', 'password')
 
-        
+    def validate_password(self, value):
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
+        return value
+
+    def validate_roll_number(self, value):
+        value = value.strip().upper()
+        try:
+            record = StudentRoster.objects.get(roll_number__iexact=value)
+        except StudentRoster.DoesNotExist:
+            raise serializers.ValidationError(
+                'This roll number is not present in the JMIT student roster. Contact the TPO office.'
+            )
+        if record.student_user_id:
+            raise serializers.ValidationError('This roll number is already registered.')
+        self.context['roster_record'] = record
+        return value
+
     def create(self, validated_data):
-        
+        record = self.context['roster_record']
+        roll_number = validated_data['roll_number']
         user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data.get('email', ''),
+            username=roll_number,
+            roll_number=roll_number,
+            email=validated_data.get('email') or record.college_email,
             password=validated_data['password'],
-            role=validated_data.get('role', 'STUDENT'),
-            cgpa=validated_data.get('cgpa', 0.00),
-            backlogs=validated_data.get('backlogs', 0),
+            role='STUDENT',
+            cgpa=record.cgpa,
+            backlogs=record.backlogs,
         )
-        
+        record.student_user = user
+        record.save(update_fields=['student_user'])
         return user
+
+
+class RecruiterRegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'password', 'company_name', 'phone_number')
+        extra_kwargs = {'company_name': {'required': True, 'allow_blank': False}}
+
+    def validate_company_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Company name is required.')
+        return value
+
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
+    def create(self, validated_data):
+        return User.objects.create_user(
+            **validated_data, role='RECRUITER', recruiter_status='PENDING'
+        )
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = (
+            'id', 'username', 'email', 'role', 'roll_number', 'company_name',
+            'phone_number', 'recruiter_status', 'cgpa', 'backlogs'
+        )
+        read_only_fields = fields
+
+
+class StudentRosterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentRoster
+        fields = ('id', 'roll_number', 'full_name', 'college_email', 'program', 'batch', 'cgpa', 'backlogs', 'student_user')
+        read_only_fields = ('id', 'student_user')
+
+    def validate_roll_number(self, value):
+        value = value.strip().upper()
+        if self.instance and self.instance.student_user_id and value != self.instance.roll_number:
+            raise serializers.ValidationError('A registered student roll number cannot be changed here.')
+        return value
+
+    def validate_cgpa(self, value):
+        if value < 0 or value > 10:
+            raise serializers.ValidationError('CGPA must be between 0 and 10.')
+        return value
+
+
+class RecruiterReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'company_name', 'phone_number', 'recruiter_status')
+        read_only_fields = ('id', 'username', 'email', 'company_name', 'phone_number')
+
+    def validate_recruiter_status(self, value):
+        if value not in ('APPROVED', 'REJECTED'):
+            raise serializers.ValidationError('Choose APPROVED or REJECTED.')
+        return value
+
+
+class CampusConnectTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Accept the student's roll number in the normal username login field."""
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['role'] = user.role
+        token['recruiter_status'] = user.recruiter_status
+        return token
+
+    def validate(self, attrs):
+        username = attrs['username'].strip()
+        if not User.objects.filter(username=username).exists():
+            matched_student = User.objects.filter(roll_number__iexact=username, role='STUDENT').first()
+            if matched_student:
+                username = matched_student.username
+        attrs['username'] = username
+        return super().validate(attrs)
