@@ -54,6 +54,13 @@ class RecruiterRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('username', 'email', 'password', 'company_name', 'phone_number')
+        extra_kwargs = {'company_name': {'required': True, 'allow_blank': False}}
+
+    def validate_company_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Company name is required.')
+        return value
 
     def validate_password(self, value):
         validate_password(value)
