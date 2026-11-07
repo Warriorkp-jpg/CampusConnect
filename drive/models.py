@@ -20,7 +20,13 @@ class Drive(models.Model):
 
     @property
     def is_open(self):
-        return self.is_active and (
+        recruiter_is_valid = (
+            self.posted_by.role == 'TPO' or (
+                self.posted_by.role == 'RECRUITER'
+                and self.posted_by.recruiter_status == 'APPROVED'
+            )
+        )
+        return self.is_active and recruiter_is_valid and (
             self.application_deadline is None or self.application_deadline >= timezone.now()
         )
 
