@@ -53,13 +53,12 @@ class AdminDashboardView(APIView):
 #     serializer_class = RegisterSerializer
 
 #     def get_permissions(self):
-#         # 1. Anyone can register (POST /api/users/)
+        
 #         if self.action == 'create':
 #             return [AllowAny()]
         
-#         # 2. Only ADMIN can delete a user or see the full list of all users
+        
 #         elif self.action in ['list', 'destroy']:
 #             return [IsAdminRole()]
-        
-#         # 3. Any logged-in user can view/update details
+
 #         return [IsAuthenticated()]

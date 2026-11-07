@@ -14,9 +14,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'password', 'role', 'cgpa', 'backlogs']
     
-    
-    # by default create = User.ocjects.create(**validate_data)
-    # cause plain pass but JWT want a hashed pass
+
         
     def create(self, validated_data):
         
