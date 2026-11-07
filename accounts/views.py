@@ -100,5 +100,5 @@ class StudentRosterViewSet(viewsets.ModelViewSet):
     def unregistered(self, request):
         records = self.get_queryset().filter(student_user__isnull=True)
         page = self.paginate_queryset(records)
-        serializer = self.get_serializer(page or records, many=True)
+        serializer = self.get_serializer(page if page is not None else records, many=True)
         return self.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)
