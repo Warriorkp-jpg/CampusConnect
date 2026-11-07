@@ -2,7 +2,6 @@ from rest_framework import viewsets
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
-from accounts.permissions import IsApprovedRecruiter, IsTPORole
 from .models import Drive
 from .serializers import DriveSerializer
 
@@ -22,8 +21,11 @@ class DriveViewSet(viewsets.ModelViewSet):
         if user.role == 'STUDENT':
             return base.filter(
                 Q(application_deadline__isnull=True) | Q(application_deadline__gte=timezone.now()),
-                is_active=True, posted_by__role='RECRUITER',
-                posted_by__recruiter_status='APPROVED'
+                is_active=True
+            ).filter(
+                Q(posted_by__role='TPO') | Q(
+                    posted_by__role='RECRUITER', posted_by__recruiter_status='APPROVED'
+                )
             )
         return Drive.objects.none()
 
