@@ -63,8 +63,7 @@ footer{color:#8793a7}.pointer{cursor:pointer}
         <div class="col-md-6"><label class="form-label">College roll number</label><input id="studentRoll" class="form-control" required></div>
         <div class="col-md-6"><label class="form-label">College email</label><input id="studentEmail" type="email" class="form-control"></div>
         <div class="col-md-6"><label class="form-label">Password</label><input id="studentPassword" type="password" minlength="8" class="form-control" required></div>
-        <div class="col-md-3"><label class="form-label">CGPA</label><input id="studentCgpa" type="number" min="0" max="10" step=".01" value="0" class="form-control" required></div>
-        <div class="col-md-3"><label class="form-label">Backlogs</label><input id="studentBacklogs" type="number" min="0" value="0" class="form-control" required></div>
+        <div class="col-12"><div class="form-text">Your academic eligibility details are maintained by the TPO in the official student roster.</div></div>
         <div class="col-12"><button class="btn btn-primary" type="submit">Register as student</button></div>
        </form>
       </div>
@@ -121,10 +120,10 @@ footer{color:#8793a7}.pointer{cursor:pointer}
   <section id="tpoPane" class="portal-pane hidden">
    <div class="row g-3">
     <div class="col-lg-5"><div class="panel"><h5 class="fw-bold">Add student to official roster</h5><p class="muted small">Only students listed here can register with their roll number.</p><form id="rosterForm" class="vstack gap-2">
-     <input id="rosterRoll" class="form-control" placeholder="College roll number" required><input id="rosterName" class="form-control" placeholder="Student full name" required><input id="rosterEmail" type="email" class="form-control" placeholder="College email"><input id="rosterProgram" class="form-control" value="B.Tech CSE" placeholder="Program"><input id="rosterBatch" class="form-control" placeholder="Batch (e.g. 2027)"><button class="btn btn-primary">Add to roster</button>
+     <input id="rosterRoll" class="form-control" placeholder="College roll number" required><input id="rosterName" class="form-control" placeholder="Student full name" required><input id="rosterEmail" type="email" class="form-control" placeholder="College email"><input id="rosterProgram" class="form-control" value="B.Tech CSE" placeholder="Program"><input id="rosterBatch" class="form-control" placeholder="Batch (e.g. 2027)"><input id="rosterCgpa" type="number" min="0" max="10" step=".01" class="form-control" placeholder="Verified CGPA" required><input id="rosterBacklogs" type="number" min="0" class="form-control" placeholder="Verified active backlogs" required><button class="btn btn-primary">Add to roster</button>
     </form></div></div>
     <div class="col-lg-7"><div class="panel"><h5 class="fw-bold">Recruiter approval requests</h5><div id="pendingRecruiters" class="vstack gap-2"></div></div></div>
-    <div class="col-12"><div class="panel"><h5 class="fw-bold">Student roster</h5><div class="table-responsive"><table class="table"><thead><tr><th>Roll number</th><th>Name</th><th>Program</th><th>Batch</th><th>Registration</th><th></th></tr></thead><tbody id="rosterBody"></tbody></table></div></div></div>
+    <div class="col-12"><div class="panel"><h5 class="fw-bold">Student roster</h5><div class="table-responsive"><table class="table"><thead><tr><th>Roll number</th><th>Name</th><th>Program</th><th>Batch</th><th>CGPA</th><th>Backlogs</th><th>Registration</th><th></th></tr></thead><tbody id="rosterBody"></tbody></table></div></div></div>
    </div>
   </section>
  </section>
@@ -153,7 +152,7 @@ submitForm($('loginForm'),async()=>{
  state.user=await api('/api/me/');showPortal();await loadPortal();alertUser('Signed in successfully.','success');
 });
 submitForm($('studentRegisterForm'),async()=>{
- await api('/api/register/student/','POST',{roll_number:$('studentRoll').value.trim(),email:$('studentEmail').value.trim(),password:$('studentPassword').value,cgpa:Number($('studentCgpa').value),backlogs:Number($('studentBacklogs').value)},false);
+ await api('/api/register/student/','POST',{roll_number:$('studentRoll').value.trim(),email:$('studentEmail').value.trim(),password:$('studentPassword').value,},false);
  $('studentRegisterForm').reset();alertUser('Student account created. Sign in using your roll number and password.','success');
 });
 submitForm($('recruiterRegisterForm'),async()=>{
@@ -167,7 +166,7 @@ function showPortal(){
  $('roleEyebrow').textContent=state.user.role+' PORTAL';
  $('welcomeText').textContent=state.user.role==='STUDENT'?'Discover verified placement opportunities and track your applications.':state.user.role==='RECRUITER'?'Manage your company drives and candidate pipeline.':'Manage JMIT placement activity, recruiters and the student roster.';
  $('statusBadge').textContent=state.user.role==='RECRUITER'?state.user.recruiter_status:state.user.role;
- $('createDriveTab').classList.toggle('hidden',!(state.user.role==='TPO'||(state.user.role==='RECRUITER'&&state.user.recruiter_status==='APPROVED')));
+ $('createDriveTab').classList.toggle('hidden',!(state.user.role==='TPO'||(state.user.role==='RECRUITER'&&state.user.recruiter_status==='APPROVED')));$('driveCompany').readOnly=state.user.role==='RECRUITER';if(state.user.role==='RECRUITER')$('driveCompany').value=state.user.company_name;
  $('tpoTab').classList.toggle('hidden',state.user.role!=='TPO');
  $('statsRow').classList.toggle('hidden',state.user.role==='RECRUITER'&&state.user.recruiter_status!=='APPROVED');
  $('applicationsHeading').textContent=state.user.role==='STUDENT'?'My applications':'Candidate applications';
@@ -210,18 +209,18 @@ async function applyDrive(id){try{await api('/api/application/','POST',{drive:id
 async function setStatus(id,status){try{await api('/api/application/'+id+'/','PATCH',{status});alertUser('Application status updated.','success');await loadPortal();}catch(e){alertUser(e.message,'danger');}}
 async function deleteDrive(id){if(!confirm('Delete this placement drive?'))return;try{await api('/api/drive/'+id+'/','DELETE');alertUser('Drive deleted.','success');await loadPortal();}catch(e){alertUser(e.message,'danger');}}
 submitForm($('driveForm'),async()=>{
- const payload={company_name:$('driveCompany').value.trim(),role_title:$('driveRole').value.trim(),description:$('driveDescription').value.trim(),location:$('driveLocation').value.trim(),package_lpa:Number($('drivePackage').value),min_cgpa:Number($('driveMinCgpa').value),max_backlogs:Number($('driveMaxBacklogs').value),application_deadline:$('driveDeadline').value?new Date($('driveDeadline').value).toISOString():null};
+ const payload={company_name:(state.user.role==='RECRUITER'?state.user.company_name:$('driveCompany').value.trim()),role_title:$('driveRole').value.trim(),description:$('driveDescription').value.trim(),location:$('driveLocation').value.trim(),package_lpa:Number($('drivePackage').value),min_cgpa:Number($('driveMinCgpa').value),max_backlogs:Number($('driveMaxBacklogs').value),application_deadline:$('driveDeadline').value?new Date($('driveDeadline').value).toISOString():null};
  await api('/api/drive/','POST',payload);$('driveForm').reset();alertUser('Placement drive published.','success');await loadPortal();showPane('drivesPane');
 });
 async function loadTpo(){
  const [pending,roster]=await Promise.all([api('/api/tpo/recruiters/pending/'),api('/api/tpo/student-roster/')]);
  const recruiters=rows(pending);state.roster=rows(roster);
  $('pendingRecruiters').innerHTML=recruiters.length?recruiters.map(r=>'<div class="border rounded-3 p-3"><div class="fw-semibold">'+esc(r.company_name||r.username)+'</div><div class="small muted">'+esc(r.email)+' • '+esc(r.phone_number)+'</div><div class="d-flex gap-2 mt-2"><button class="btn btn-sm btn-success" onclick="reviewRecruiter('+r.id+',\'APPROVED\')">Approve</button><button class="btn btn-sm btn-outline-danger" onclick="reviewRecruiter('+r.id+',\'REJECTED\')">Reject</button></div></div>').join(''):'<div class="muted small">No pending recruiter requests.</div>';
- $('rosterBody').innerHTML=state.roster.length?state.roster.map(s=>'<tr><td>'+esc(s.roll_number)+'</td><td>'+esc(s.full_name)+'</td><td>'+esc(s.program)+'</td><td>'+esc(s.batch)+'</td><td>'+(s.student_user?'Registered':'Not registered')+'</td><td><button class="btn btn-sm btn-outline-danger" onclick="deleteRoster('+s.id+')">Remove</button></td></tr>').join(''):'<tr><td colspan="6" class="muted text-center">Roster is empty.</td></tr>';
+ $('rosterBody').innerHTML=state.roster.length?state.roster.map(s=>'<tr><td>'+esc(s.roll_number)+'</td><td>'+esc(s.full_name)+'</td><td>'+esc(s.program)+'</td><td>'+esc(s.batch)+'</td><td>'+esc(s.cgpa)+'</td><td>'+esc(s.backlogs)+'</td><td>'+(s.student_user?'Registered':'Not registered')+'</td><td><button class="btn btn-sm btn-outline-danger" onclick="deleteRoster('+s.id+')">Remove</button></td></tr>').join(''):'<tr><td colspan="6" class="muted text-center">Roster is empty.</td></tr>';
 }
 async function reviewRecruiter(id,status){try{await api('/api/tpo/recruiters/'+id+'/review/','PATCH',{recruiter_status:status});alertUser('Recruiter marked '+status+'.','success');await loadTpo();}catch(e){alertUser(e.message,'danger');}}
 submitForm($('rosterForm'),async()=>{
- await api('/api/tpo/student-roster/','POST',{roll_number:$('rosterRoll').value.trim(),full_name:$('rosterName').value.trim(),college_email:$('rosterEmail').value.trim(),program:$('rosterProgram').value.trim()||'B.Tech CSE',batch:$('rosterBatch').value.trim()});
+ await api('/api/tpo/student-roster/','POST',{roll_number:$('rosterRoll').value.trim(),full_name:$('rosterName').value.trim(),college_email:$('rosterEmail').value.trim(),program:$('rosterProgram').value.trim()||'B.Tech CSE',batch:$('rosterBatch').value.trim(),cgpa:Number($('rosterCgpa').value),backlogs:Number($('rosterBacklogs').value)});
  $('rosterForm').reset();$('rosterProgram').value='B.Tech CSE';alertUser('Student added to the official roster.','success');await loadTpo();
 });
 async function deleteRoster(id){if(!confirm('Remove this roll number from the registration roster?'))return;try{await api('/api/tpo/student-roster/'+id+'/','DELETE');await loadTpo();alertUser('Roster entry removed.','success');}catch(e){alertUser(e.message,'danger');}}
