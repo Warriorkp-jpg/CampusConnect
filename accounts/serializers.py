@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import StudentRoster
@@ -15,7 +16,10 @@ class StudentRegisterSerializer(serializers.ModelSerializer):
         fields = ('roll_number', 'email', 'password')
 
     def validate_password(self, value):
-        validate_password(value)
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
         return value
 
     def validate_roll_number(self, value):
@@ -89,7 +93,10 @@ class StudentRosterSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'student_user')
 
     def validate_roll_number(self, value):
-        return value.strip().upper()
+        value = value.strip().upper()
+        if self.instance and self.instance.student_user_id and value != self.instance.roll_number:
+            raise serializers.ValidationError('A registered student roll number cannot be changed here.')
+        return value
 
     def validate_cgpa(self, value):
         if value < 0 or value > 10:
