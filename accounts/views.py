@@ -96,6 +96,12 @@ class StudentRosterViewSet(viewsets.ModelViewSet):
     permission_classes = [IsTPORole]
     http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
 
+    def perform_destroy(self, instance):
+        if instance.student_user_id:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError('A registered student roster record cannot be deleted.')
+        instance.delete()
+
     def perform_update(self, serializer):
         record = serializer.save()
         if record.student_user_id:
