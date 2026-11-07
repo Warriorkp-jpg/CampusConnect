@@ -37,6 +37,8 @@ class StudentRoster(models.Model):
     college_email = models.EmailField(blank=True)
     program = models.CharField(max_length=100, default='B.Tech CSE')
     batch = models.CharField(max_length=20, blank=True)
+    cgpa = models.DecimalField(max_digits=4, decimal_places=2, default=0.00)
+    backlogs = models.PositiveIntegerField(default=0)
     student_user = models.OneToOneField(
         'accounts.User', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='roster_record'
