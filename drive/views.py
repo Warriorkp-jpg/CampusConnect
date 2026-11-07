@@ -1,4 +1,6 @@
 from rest_framework import viewsets
+from django.db.models import Q
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsApprovedRecruiter, IsTPORole
 from .models import Drive
@@ -19,6 +21,7 @@ class DriveViewSet(viewsets.ModelViewSet):
             return base.filter(posted_by=user)
         if user.role == 'STUDENT':
             return base.filter(
+                Q(application_deadline__isnull=True) | Q(application_deadline__gte=timezone.now()),
                 is_active=True, posted_by__role='RECRUITER',
                 posted_by__recruiter_status='APPROVED'
             )
@@ -33,10 +36,16 @@ class DriveViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(posted_by=self.request.user)
+        user = self.request.user
+        company = user.company_name if user.role == 'RECRUITER' else serializer.validated_data['company_name']
+        serializer.save(posted_by=user, company_name=company)
 
     def perform_update(self, serializer):
-        serializer.save()
+        user = self.request.user
+        if user.role == 'RECRUITER':
+            serializer.save(company_name=user.company_name)
+        else:
+            serializer.save()
 
 
 from rest_framework.permissions import BasePermission
