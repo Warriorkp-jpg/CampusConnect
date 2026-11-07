@@ -26,9 +26,6 @@ class StudentRegisterSerializer(serializers.ModelSerializer):
         self.context['roster_record'] = record
         return value
 
-    def validate(self, attrs):
-        return attrs
-
     def create(self, validated_data):
         record = self.context['roster_record']
         roll_number = validated_data['roll_number']
@@ -75,6 +72,11 @@ class StudentRosterSerializer(serializers.ModelSerializer):
         fields = ('id', 'roll_number', 'full_name', 'college_email', 'program', 'batch', 'cgpa', 'backlogs', 'student_user')
         read_only_fields = ('id', 'student_user')
 
+    def validate_cgpa(self, value):
+        if value < 0 or value > 10:
+            raise serializers.ValidationError('CGPA must be between 0 and 10.')
+        return value
+
 
 class RecruiterReviewSerializer(serializers.ModelSerializer):
     class Meta:
@@ -98,5 +100,10 @@ class CampusConnectTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        attrs['username'] = attrs['username'].strip()
+        username = attrs['username'].strip()
+        if not User.objects.filter(username=username).exists():
+            matched_student = User.objects.filter(roll_number__iexact=username, role='STUDENT').first()
+            if matched_student:
+                username = matched_student.username
+        attrs['username'] = username
         return super().validate(attrs)
