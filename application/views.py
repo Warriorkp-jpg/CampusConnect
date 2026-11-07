@@ -1,6 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from django.db import IntegrityError, transaction
 from accounts.permissions import IsStudentRole, IsApprovedRecruiter, IsTPORole
 from .models import Application
 from .serializers import ApplicationSerializer
@@ -37,7 +38,11 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(student=self.request.user)
+        try:
+            with transaction.atomic():
+                serializer.save(student=self.request.user)
+        except IntegrityError:
+            raise ValidationError({'drive': 'You have already applied to this placement drive.'})
 
     def perform_update(self, serializer):
         if self.request.user.role == 'RECRUITER':
