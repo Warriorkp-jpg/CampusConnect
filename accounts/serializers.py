@@ -11,7 +11,7 @@ class StudentRegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('roll_number', 'email', 'password', 'cgpa', 'backlogs')
+        fields = ('roll_number', 'email', 'password')
 
     def validate_roll_number(self, value):
         value = value.strip().upper()
@@ -27,12 +27,6 @@ class StudentRegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        cgpa = attrs.get('cgpa', 0)
-        backlogs = attrs.get('backlogs', 0)
-        if cgpa < 0 or cgpa > 10:
-            raise serializers.ValidationError({'cgpa': 'CGPA must be between 0 and 10.'})
-        if backlogs < 0:
-            raise serializers.ValidationError({'backlogs': 'Backlogs cannot be negative.'})
         return attrs
 
     def create(self, validated_data):
@@ -44,8 +38,8 @@ class StudentRegisterSerializer(serializers.ModelSerializer):
             email=validated_data.get('email') or record.college_email,
             password=validated_data['password'],
             role='STUDENT',
-            cgpa=validated_data.get('cgpa', 0),
-            backlogs=validated_data.get('backlogs', 0),
+            cgpa=record.cgpa,
+            backlogs=record.backlogs,
         )
         record.student_user = user
         record.save(update_fields=['student_user'])
@@ -78,7 +72,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class StudentRosterSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentRoster
-        fields = ('id', 'roll_number', 'full_name', 'college_email', 'program', 'batch', 'student_user')
+        fields = ('id', 'roll_number', 'full_name', 'college_email', 'program', 'batch', 'cgpa', 'backlogs', 'student_user')
         read_only_fields = ('id', 'student_user')
 
 
