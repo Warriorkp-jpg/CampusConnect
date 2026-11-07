@@ -94,7 +94,16 @@ class StudentRosterViewSet(viewsets.ModelViewSet):
     queryset = StudentRoster.objects.all().order_by('roll_number')
     serializer_class = StudentRosterSerializer
     permission_classes = [IsTPORole]
-    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+    http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
+
+    def perform_update(self, serializer):
+        record = serializer.save()
+        if record.student_user_id:
+            student = record.student_user
+            student.cgpa = record.cgpa
+            student.backlogs = record.backlogs
+            student.email = record.college_email or student.email
+            student.save(update_fields=['cgpa', 'backlogs', 'email'])
 
     @action(detail=False, methods=['get'], url_path='unregistered')
     def unregistered(self, request):
