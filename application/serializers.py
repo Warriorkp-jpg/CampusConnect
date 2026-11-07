@@ -63,4 +63,6 @@ class ApplicationSerializer(serializers.ModelSerializer):
         fields = super().get_fields()
         if self.instance is None:
             fields['status'].read_only = True
+        else:
+            fields['drive'].read_only = True
         return fields
