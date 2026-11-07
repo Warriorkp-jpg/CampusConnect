@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import StudentRoster
@@ -12,6 +13,10 @@ class StudentRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('roll_number', 'email', 'password')
+
+    def validate_password(self, value):
+        validate_password(value)
+        return value
 
     def validate_roll_number(self, value):
         value = value.strip().upper()
@@ -50,6 +55,10 @@ class RecruiterRegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ('username', 'email', 'password', 'company_name', 'phone_number')
 
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
     def create(self, validated_data):
         return User.objects.create_user(
             **validated_data, role='RECRUITER', recruiter_status='PENDING'
@@ -71,6 +80,9 @@ class StudentRosterSerializer(serializers.ModelSerializer):
         model = StudentRoster
         fields = ('id', 'roll_number', 'full_name', 'college_email', 'program', 'batch', 'cgpa', 'backlogs', 'student_user')
         read_only_fields = ('id', 'student_user')
+
+    def validate_roll_number(self, value):
+        return value.strip().upper()
 
     def validate_cgpa(self, value):
         if value < 0 or value > 10:
