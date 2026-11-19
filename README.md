@@ -20,6 +20,7 @@ TPO accounts are created by a trusted administrator using Django admin. There is
 - Application status updates and role-based queryset isolation.
 - TPO dashboard and roster management.
 - TPO-only CSV/XLSX bulk roster import with row-level validation.
+- Student self-registration through roster-bound email OTP, hashed challenges, expiry, resend limits and attempt limits.
 
 ## Bulk student roster import
 
@@ -39,7 +40,9 @@ The importer validates each row, reports row-level errors, skips existing roll n
 
 | Endpoint | Access | Purpose |
 |---|---|---|
-| POST `/api/register/student/` | Public | Current student registration flow; OTP upgrade is planned |
+| POST `/api/register/student/request-otp/` | Public | Request an OTP sent only to the email in the official roster |
+| POST `/api/register/student/verify-otp/` | Public | Verify the emailed OTP |
+| POST `/api/register/student/` | Public | Complete registration using a verified challenge and password |
 | POST `/api/register/recruiter/` | Public | Recruiter registration; account starts pending |
 | POST `/api/login/` | Public | Obtain JWT tokens |
 | GET `/api/me/` | Authenticated | Current account profile and role |
@@ -58,11 +61,11 @@ The importer validates each row, reports row-level errors, skips existing roll n
 1. Clone the repository and enter the project folder.
 2. Create and activate a Python virtual environment.
 3. Install dependencies: `pip install -r requirements.txt`.
-4. Set a strong `DJANGO_SECRET_KEY` for any shared or deployed environment.
-5. Run `python manage.py migrate`.
-6. Create an administrator using `python manage.py createsuperuser`.
-7. Assign the trusted TPO account the application role `TPO` in Django admin.
-8. Run `python manage.py runserver`.
+4. Set a strong `DJANGO_SECRET_KEY` for any shared or deployed environment.\n5. For local OTP testing, the default email backend prints the message in the Django terminal. For real email delivery, configure `EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` and `DEFAULT_FROM_EMAIL` as environment variables. Never commit email credentials.
+6. Run `python manage.py migrate`.
+7. Create an administrator using `python manage.py createsuperuser`.
+8. Assign the trusted TPO account the application role `TPO` in Django admin.
+9. Run `python manage.py runserver`.
 
 SQLite remains the selected development database. Keep `db.sqlite3` out of Git and back it up before migration changes.
 
@@ -76,3 +79,12 @@ The upgrade branch is being developed in phases: bulk roster import, student ema
 - OTP verification will prove access to the roster email address; roster membership remains the source of truth for eligibility.
 - Configure HTTPS, secure secret management, trusted CORS origins and backups before public deployment.
 - Run backend tests with `python manage.py test`.
+
+
+## Student OTP onboarding API
+
+1. Request an OTP with `POST /api/register/student/request-otp/` and JSON `{"roll_number":"JMIT2027CSE001"}`.
+2. Verify it with `POST /api/register/student/verify-otp/` and JSON `{"challenge_id":"<uuid>","otp":"123456"}`.
+3. Complete registration with `POST /api/register/student/` and JSON `{"challenge_id":"<uuid>","password":"A-strong-password"}`.
+
+The challenge is short-lived; OTP values are stored as password hashes, expire after 10 minutes, allow at most five verification attempts, and are protected by per-roll-number resend limits and IP-based API throttling. The response does not reveal whether a roll number exists. The account email and academic values always come from the TPO roster; submitted role or email values cannot override them. Local development uses Django's console email backend by default, so the code appears in the backend terminal rather than being sent to a real inbox.
