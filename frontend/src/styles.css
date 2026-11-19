@@ -25,3 +25,14 @@
 .portfolio-cell small{font-size:10px;color:#7c8799;line-height:1.4}
 .portfolio-cell a{font-size:10px;color:#3559e0;font-weight:700}
 @media(max-width:520px){.profile-actions{grid-column:auto}}
+
+.notification-wrap{position:relative}
+.notification-trigger{position:relative;border:1px solid #e5e9f1;background:#fff;border-radius:8px;width:32px;height:32px;color:#5f6d82;font-size:17px}
+.notification-trigger span{position:absolute;right:-6px;top:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:#e24b5b;color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center}
+.notification-popover{position:absolute;right:0;top:42px;width:min(350px,calc(100vw - 32px));background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 15px 45px #17243b24;z-index:20;padding:12px}
+.notification-head{display:flex;justify-content:space-between;align-items:center;padding:3px 4px 10px;border-bottom:1px solid #eff1f5}
+.notification-head strong{font:800 13px Manrope}
+.notification-item{width:100%;display:grid;gap:5px;text-align:left;border:0;border-bottom:1px solid #f0f2f6;background:#fff;padding:11px 5px;color:#344054}
+.notification-item.unread{background:#f5f7ff}
+.notification-item strong{font-size:11px}.notification-item span{font-size:10px;color:#667085;line-height:1.4}.notification-item small{font-size:9px;color:#9aa3b2}
+.notification-error{font-size:10px;color:#b33d4b}
