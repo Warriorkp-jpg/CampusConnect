@@ -256,3 +256,78 @@ class StudentEmailOTPTests(APITestCase):
             format='json',
         )
         self.assertEqual(replay.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+
+class StudentProfileAndResumeTests(APITestCase):
+    def setUp(self):
+        self.student = User.objects.create_user(
+            username='PROFILE001', roll_number='PROFILE001',
+            password='StrongPass123', role='STUDENT'
+        )
+        self.recruiter = User.objects.create_user(
+            username='profile_recruiter', password='StrongPass123',
+            role='RECRUITER', recruiter_status='APPROVED', company_name='Acme'
+        )
+        self.other_recruiter = User.objects.create_user(
+            username='profile_other', password='StrongPass123',
+            role='RECRUITER', recruiter_status='APPROVED', company_name='Other'
+        )
+        self.tpo = User.objects.create_user(
+            username='profile_tpo', password='StrongPass123', role='TPO'
+        )
+        self.drive = Drive.objects.create(
+            company_name='Acme', role_title='Developer', package_lpa=5,
+            min_cgpa=0, max_backlogs=5, posted_by=self.recruiter
+        )
+        Application.objects.create(student=self.student, drive=self.drive)
+
+    def test_student_can_save_profile_and_pdf_resume(self):
+        self.client.force_authenticate(self.student)
+        resume = SimpleUploadedFile(
+            'my_resume.pdf',
+            b'%PDF-1.4\n% CampusConnect test PDF',
+            content_type='application/pdf',
+        )
+        response = self.client.patch(
+            '/api/student-profile/',
+            {
+                'skills': 'Python, Django, SQL',
+                'github_url': 'https://github.com/example',
+                'linkedin_url': 'https://www.linkedin.com/in/example',
+                'resume': resume,
+            },
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['resume_uploaded'])
+        self.assertEqual(response.data['skills'], 'Python, Django, SQL')
+
+    def test_only_student_owner_tpo_or_relevant_recruiter_can_download_resume(self):
+        profile = StudentProfile.objects.create(user=self.student)
+        profile.resume.save(
+            'test.pdf',
+            SimpleUploadedFile('test.pdf', b'%PDF-1.4\nTest file', content_type='application/pdf'),
+        )
+
+        self.client.force_authenticate(self.other_recruiter)
+        denied = self.client.get(f'/api/students/{self.student.id}/resume/')
+        self.assertEqual(denied.status_code, status.HTTP_404_NOT_FOUND)
+
+        self.client.force_authenticate(self.recruiter)
+        allowed = self.client.get(f'/api/students/{self.student.id}/resume/')
+        self.assertEqual(allowed.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(self.tpo)
+        tpo_allowed = self.client.get(f'/api/students/{self.student.id}/resume/')
+        self.assertEqual(tpo_allowed.status_code, status.HTTP_200_OK)
+
+    def test_student_cannot_upload_non_pdf_resume(self):
+        self.client.force_authenticate(self.student)
+        bad_file = SimpleUploadedFile(
+            'resume.txt', b'not a pdf', content_type='text/plain'
+        )
+        response = self.client.patch(
+            '/api/student-profile/', {'resume': bad_file}, format='multipart'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
