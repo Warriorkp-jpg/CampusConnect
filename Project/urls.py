@@ -5,7 +5,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts.serializers import CampusConnectTokenObtainPairSerializer
 from accounts.views import (
-    StudentRegisterView, StudentOTPRequestView, StudentOTPVerifyView, RecruiterRegisterView, MeView,\n    StudentProfileView, StudentResumeDownloadView, NotificationViewSet, TPOApplicationExportView,
+    StudentRegisterView, StudentOTPRequestView, StudentOTPVerifyView, RecruiterRegisterView, MeView,
+    StudentProfileView, StudentResumeDownloadView, NotificationViewSet, TPOApplicationExportView,
     StudentDashboardView, RecruiterDashboardView, TPODashboardView,
     PendingRecruitersView, RecruiterApprovalView, StudentRosterViewSet, StudentRosterImportView,
 )
@@ -32,7 +33,9 @@ urlpatterns = [
     path('api/register/recruiter/', RecruiterRegisterView.as_view(), name='recruiter_register'),
     path('api/login/', CampusConnectTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/me/', MeView.as_view(), name='me'),\n    path('api/student-profile/', StudentProfileView.as_view(), name='student_profile'),\n    path('api/students/<int:student_id>/resume/', StudentResumeDownloadView.as_view(), name='student_resume_download'),
+    path('api/me/', MeView.as_view(), name='me'),
+    path('api/student-profile/', StudentProfileView.as_view(), name='student_profile'),
+    path('api/students/<int:student_id>/resume/', StudentResumeDownloadView.as_view(), name='student_resume_download'),
 
     path('api/student-zone/', StudentDashboardView.as_view(), name='student_zone'),
     path('api/recruiter-zone/', RecruiterDashboardView.as_view(), name='recruiter_zone'),
