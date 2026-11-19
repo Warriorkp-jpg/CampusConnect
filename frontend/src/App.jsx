@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { api } from './api';
+import { api, downloadProtectedFile } from './api';
 import { useAuth } from './AuthContext';
 
 function Protected({ children, roles }) {
@@ -225,6 +225,39 @@ function TpoDashboard() {
   </>;
 }
 
+function StudentProfilePanel() {
+  const { user } = useAuth();
+  const [profile,setProfile] = useState({skills:'',github_url:'',linkedin_url:'',resume_uploaded:false});
+  const [resume,setResume] = useState(null);
+  const [notice,setNotice] = useState('');
+  const [error,setError] = useState('');
+  const [busy,setBusy] = useState(false);
+  useEffect(()=>{api('/student-profile/').then(setProfile).catch(err=>setError(err.message));},[]);
+  async function save(event) {
+    event.preventDefault();setBusy(true);setError('');setNotice('');
+    const form = new FormData();
+    form.append('skills',profile.skills || '');
+    form.append('github_url',profile.github_url || '');
+    form.append('linkedin_url',profile.linkedin_url || '');
+    if(resume) form.append('resume',resume);
+    try {
+      const updated = await api('/student-profile/',{method:'PATCH',body:form});
+      setProfile(updated);setResume(null);setNotice('Your profile has been updated.');
+    } catch(err){setError(err.message);}
+    finally{setBusy(false);}
+  }
+  return <section className="panel section-gap"><div className="panel-heading"><div><h3>My professional profile</h3><p>Add skills and links so recruiters can learn more about you.</p></div><Tag tone={profile.resume_uploaded?'green':'amber'}>{profile.resume_uploaded?'Resume uploaded':'Resume missing'}</Tag></div>
+    {error&&<div className="alert error">{error}</div>}{notice&&<div className="alert success">{notice}</div>}
+    <form className="form-grid" onSubmit={save}>
+      <label className="span-two">Skills (comma separated)<textarea rows="3" maxLength="2000" value={profile.skills} onChange={e=>setProfile({...profile,skills:e.target.value})} placeholder="Python, Django, REST APIs, SQL, C++"/></label>
+      <label>GitHub profile<input type="url" value={profile.github_url} onChange={e=>setProfile({...profile,github_url:e.target.value})} placeholder="https://github.com/username"/></label>
+      <label>LinkedIn profile<input type="url" value={profile.linkedin_url} onChange={e=>setProfile({...profile,linkedin_url:e.target.value})} placeholder="https://linkedin.com/in/username"/></label>
+      <label className="span-two">Resume (PDF, maximum 5 MB)<input type="file" accept="application/pdf,.pdf" onChange={e=>setResume(e.target.files?.[0] || null)}/></label>
+      <div className="profile-actions"><button className="btn primary" disabled={busy}>{busy?'Saving…':'Save profile'}</button>{profile.resume_uploaded&&<button type="button" className="btn" onClick={()=>downloadProtectedFile(`/students/${user.id}/resume/`,`${user.roll_number || user.username}_resume.pdf`).catch(err=>setError(err.message))}>Download my resume</button>}</div>
+    </form>
+  </section>;
+}
+
 function StudentDashboard() {
   const [drives, setDrives] = useState([]);
   const [applications, setApplications] = useState([]);
@@ -249,6 +282,7 @@ function StudentDashboard() {
     <section className="panel section-gap"><div className="panel-heading"><div><h3>My applications</h3><p>Track your placement progress.</p></div></div>
       <DataTable columns={[{key:'company_name',label:'Company'},{key:'role_title',label:'Role'},{key:'status',label:'Status',render:a=><Tag tone={a.status==='SELECTED'?'green':a.status==='REJECTED'?'red':'blue'}>{a.status}</Tag>},{key:'applied_at',label:'Applied on',render:a=>new Date(a.applied_at).toLocaleDateString()}]} rows={applications} />
     </section>
+    <StudentProfilePanel />
   </>;
 }
 
