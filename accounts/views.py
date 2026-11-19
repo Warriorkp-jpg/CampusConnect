@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
+import csv
 from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth.hashers import make_password, check_password
@@ -27,6 +28,7 @@ from .serializers import (
 )
 from .permissions import IsStudentRole, IsRecruiterRole, IsTPORole
 from application.models import Application
+from drive.models import Drive
 from .notifications import notify_user
 
 User = get_user_model()
@@ -222,14 +224,28 @@ class TPODashboardView(APIView):
     permission_classes = [IsTPORole]
 
     def get(self, request):
+        registered_students = User.objects.filter(role='STUDENT').count()
+        selected_students = Application.objects.filter(
+            status='SELECTED'
+        ).values('student_id').distinct().count()
+        stage_counts = {
+            status_code: Application.objects.filter(status=status_code).count()
+            for status_code, _ in Application.STATUS_CHOICES
+        }
         return Response({
             'message': 'Welcome to the TPO dashboard',
             'role': 'TPO',
             'pending_recruiters': User.objects.filter(
                 role='RECRUITER', recruiter_status='PENDING'
             ).count(),
-            'registered_students': User.objects.filter(role='STUDENT').count(),
+            'registered_students': registered_students,
             'roster_students': StudentRoster.objects.count(),
+            'total_drives': Drive.objects.count(),
+            'active_drives': Drive.objects.filter(is_active=True).count(),
+            'total_applications': Application.objects.count(),
+            'selected_students': selected_students,
+            'placement_rate': round((selected_students / registered_students) * 100, 1) if registered_students else 0,
+            'application_stages': stage_counts,
         })
 
 
@@ -349,3 +365,37 @@ class StudentResumeDownloadView(APIView):
             filename=filename,
             content_type='application/pdf',
         )
+
+
+
+class TPOApplicationExportView(APIView):
+    permission_classes = [IsTPORole]
+
+    def get(self, request):
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="campusconnect-applications.csv"'
+        response.write('\ufeff')
+        writer = csv.writer(response)
+        writer.writerow([
+            'Roll Number', 'Student Name', 'College Email', 'Company',
+            'Role', 'CGPA', 'Backlogs', 'Application Status', 'Applied At',
+            'Interview At', 'Interview Mode',
+        ])
+        applications = Application.objects.select_related(
+            'student', 'drive'
+        ).order_by('-applied_at')
+        for application in applications.iterator():
+            writer.writerow([
+                application.student.roll_number,
+                application.student.get_full_name(),
+                application.student.email,
+                application.drive.company_name,
+                application.drive.role_title,
+                application.student.cgpa,
+                application.student.backlogs,
+                application.status,
+                application.applied_at.isoformat(),
+                application.interview_at.isoformat() if application.interview_at else '',
+                application.interview_mode,
+            ])
+        return response
