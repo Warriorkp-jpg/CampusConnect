@@ -71,7 +71,7 @@ SQLite remains the selected development database. Keep `db.sqlite3` out of Git a
 
 ## Upgrade roadmap
 
-The upgrade branch is being developed in phases: bulk roster import, student email OTP verification, React application foundation, improved role dashboards, recruiter candidate workflows, application pipeline, notifications, analytics and automated tests.
+The upgrade branch includes bulk roster import, student email OTP verification, a React/Vite role-based portal, and CI for backend tests and frontend builds. Remaining roadmap items include expanded student profiles/resumes, interview-stage pipeline, notifications, analytics and additional automated tests.
 
 ## Important security notes
 
@@ -88,3 +88,18 @@ The upgrade branch is being developed in phases: bulk roster import, student ema
 3. Complete registration with `POST /api/register/student/` and JSON `{"challenge_id":"<uuid>","password":"A-strong-password"}`.
 
 The challenge is short-lived; OTP values are stored as password hashes, expire after 10 minutes, allow at most five verification attempts, and are protected by per-roll-number resend limits and IP-based API throttling. The response does not reveal whether a roll number exists. The account email and academic values always come from the TPO roster; submitted role or email values cannot override them. Local development uses Django's console email backend by default, so the code appears in the backend terminal rather than being sent to a real inbox.
+
+
+## React frontend setup
+
+1. Open a second terminal and enter `frontend/`.
+2. Install packages with `npm install`.
+3. Copy `.env.example` to `.env` if you need to change the backend API URL.
+4. Start the frontend with `npm run dev`.
+5. Open `http://127.0.0.1:5173`.
+
+The React app currently includes student OTP registration, login, role-based dashboards, student drive applications, recruiter drive creation and candidate status actions, and TPO roster/recruiter management. The backend must be running at the configured API URL. The default CORS settings allow the Vite development origin.
+
+## Automated checks
+
+GitHub Actions runs `python manage.py check`, `python manage.py test`, and the React production build for the upgrade branch. Check the Actions tab for the latest run status.
