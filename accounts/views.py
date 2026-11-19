@@ -63,7 +63,6 @@ class StudentOTPRequestView(APIView):
             recent = StudentEmailOTP.objects.filter(
                 roll_number__iexact=record.roll_number,
                 created_at__gte=now - timedelta(hours=1),
-                consumed_at__isnull=True,
             )
             latest = recent.order_by('-created_at').first()
             allowed = recent.count() < OTP_MAX_REQUESTS_PER_HOUR
@@ -71,6 +70,10 @@ class StudentOTPRequestView(APIView):
                 allowed = False
 
             if allowed:
+                StudentEmailOTP.objects.filter(
+                    roll_number__iexact=record.roll_number,
+                    consumed_at__isnull=True,
+                ).update(consumed_at=now)
                 code = f'{secrets.randbelow(10 ** OTP_LENGTH):0{OTP_LENGTH}d}'
                 challenge = StudentEmailOTP.objects.create(
                     roll_number=record.roll_number,
