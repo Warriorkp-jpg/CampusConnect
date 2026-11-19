@@ -9,6 +9,7 @@ import secrets
 import uuid
 from rest_framework import generics, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -37,12 +38,15 @@ OTP_MAX_VERIFY_ATTEMPTS = 5
 
 class StudentOTPRequestView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'student_otp'
 
     def post(self, request):
         serializer = StudentOTPRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         roll_number = serializer.validated_data['roll_number']
         now = timezone.now()
+        StudentEmailOTP.objects.filter(expires_at__lt=now - timedelta(days=1)).delete()
         response_challenge = uuid.uuid4()
 
         record = StudentRoster.objects.filter(
@@ -95,6 +99,8 @@ class StudentOTPRequestView(APIView):
 
 class StudentOTPVerifyView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'student_otp_verify'
 
     def post(self, request):
         serializer = StudentOTPVerifySerializer(data=request.data)
