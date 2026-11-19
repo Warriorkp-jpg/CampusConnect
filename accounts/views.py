@@ -22,11 +22,12 @@ from .models import StudentRoster, StudentEmailOTP, StudentProfile
 from .roster_import import import_student_roster, RosterImportError
 from .serializers import (
     StudentOTPRequestSerializer, StudentOTPVerifySerializer, StudentRegistrationCompleteSerializer,
-    RecruiterRegisterSerializer, UserProfileSerializer, StudentProfileSerializer,
+    RecruiterRegisterSerializer, UserProfileSerializer, StudentProfileSerializer, NotificationSerializer,
     StudentRosterSerializer, RecruiterReviewSerializer
 )
 from .permissions import IsStudentRole, IsRecruiterRole, IsTPORole
 from application.models import Application
+from .notifications import notify_user
 
 User = get_user_model()
 
@@ -177,6 +178,7 @@ class StudentRegisterView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        notify_user(user, 'Welcome to CampusConnect', 'Your student account is ready. Explore open placement drives and complete your profile.', 'GENERAL')
         return Response(UserProfileSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
@@ -237,6 +239,13 @@ class RecruiterApprovalView(generics.UpdateAPIView):
     permission_classes = [IsTPORole]
     http_method_names = ['patch', 'options', 'head']
 
+    def perform_update(self, serializer):
+        recruiter = serializer.save()
+        if recruiter.recruiter_status == 'APPROVED':
+            notify_user(recruiter, 'Recruiter account approved', 'Your company account is approved. You can now publish placement drives.', 'RECRUITER')
+        elif recruiter.recruiter_status == 'REJECTED':
+            notify_user(recruiter, 'Recruiter account update', 'Your recruiter account was not approved. Please contact the TPO office for details.', 'RECRUITER')
+
 
 class PendingRecruitersView(generics.ListAPIView):
     serializer_class = RecruiterReviewSerializer
@@ -296,6 +305,15 @@ class StudentRosterImportView(APIView):
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result, status=status.HTTP_200_OK)
 
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+    def get_queryset(self):
+        return self.request.user.notifications.all().order_by('-created_at')
 
 
 class StudentProfileView(generics.RetrieveUpdateAPIView):
