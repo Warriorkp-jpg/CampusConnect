@@ -133,3 +133,28 @@ class CampusConnectTokenObtainPairSerializer(TokenObtainPairSerializer):
                 username = matched_student.username
         attrs['username'] = username
         return super().validate(attrs)
+
+
+
+class StudentOTPRequestSerializer(serializers.Serializer):
+    roll_number = serializers.CharField(max_length=30)
+
+    def validate_roll_number(self, value):
+        return value.strip().upper()
+
+
+class StudentOTPVerifySerializer(serializers.Serializer):
+    challenge_id = serializers.UUIDField()
+    otp = serializers.RegexField(regex=r'^\d{6}$')
+
+
+class StudentRegistrationCompleteSerializer(serializers.Serializer):
+    challenge_id = serializers.UUIDField()
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate_password(self, value):
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
+        return value
