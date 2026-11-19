@@ -5,7 +5,8 @@ from .models import Application
 class ApplicationSerializer(serializers.ModelSerializer):
     STATUS_TRANSITIONS = {
         'APPLIED': {'SHORTLISTED', 'REJECTED'},
-        'SHORTLISTED': {'SELECTED', 'REJECTED'},
+        'SHORTLISTED': {'INTERVIEW', 'SELECTED', 'REJECTED'},
+        'INTERVIEW': {'SELECTED', 'REJECTED'},
         'SELECTED': set(),
         'REJECTED': set(),
     }
@@ -23,24 +24,31 @@ class ApplicationSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'student', 'student_name', 'student_roll_number', 'student_email',
             'student_cgpa', 'student_backlogs', 'drive', 'company_name', 'role_title',
-            'status', 'applied_at'
+            'status', 'interview_at', 'interview_mode', 'applied_at', 'updated_at'
         )
         read_only_fields = (
             'id', 'student', 'student_name', 'student_roll_number', 'student_email',
             'student_cgpa', 'student_backlogs', 'company_name', 'role_title',
-            'applied_at'
+            'applied_at', 'updated_at'
         )
 
     def validate(self, attrs):
         if self.instance is not None:
-            next_status = self.initial_data.get('status')
+            next_status = attrs.get('status')
             if next_status and next_status != self.instance.status:
-                allowed = self.STATUS_TRANSITIONS[self.instance.status]
+                allowed = self.STATUS_TRANSITIONS.get(self.instance.status, set())
                 if next_status not in allowed:
                     raise serializers.ValidationError({
                         'status': f'Cannot change {self.instance.status} to {next_status}.'
                     })
-                attrs['status'] = next_status
+            if attrs.get('status') == 'INTERVIEW' or (
+                self.instance.status == 'INTERVIEW' and attrs.get('interview_at') is not None
+            ):
+                interview_at = attrs.get('interview_at', self.instance.interview_at)
+                if not interview_at:
+                    raise serializers.ValidationError({
+                        'interview_at': 'Set the interview date and time before moving the candidate to interview.'
+                    })
             return attrs
 
         student = self.context['request'].user
@@ -63,6 +71,8 @@ class ApplicationSerializer(serializers.ModelSerializer):
         fields = super().get_fields()
         if self.instance is None:
             fields['status'].read_only = True
+            fields['interview_at'].read_only = True
+            fields['interview_mode'].read_only = True
         else:
             fields['drive'].read_only = True
         return fields
