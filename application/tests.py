@@ -102,10 +102,14 @@ class ApplicationPipelineTests(APITestCase):
 
 
     def test_new_application_and_stage_changes_create_notifications(self):
+        fresh_drive = Drive.objects.create(
+            company_name='Acme', role_title='Backend Intern', package_lpa=7,
+            min_cgpa=6, max_backlogs=1, posted_by=self.recruiter
+        )
         self.client.force_authenticate(self.student_a)
         created = self.client.post(
             '/api/application/',
-            {'drive': self.drive.id},
+            {'drive': fresh_drive.id},
             format='json',
         )
         self.assertEqual(created.status_code, status.HTTP_201_CREATED)
