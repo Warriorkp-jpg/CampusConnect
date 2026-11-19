@@ -41,3 +41,9 @@
 .stage-summary div{display:flex;align-items:center;gap:8px;padding:8px 11px;border:1px solid #e6eaf0;border-radius:8px;background:#fff}
 .stage-summary span{font-size:9px;font-weight:700;color:#7b879a;letter-spacing:.5px}
 .stage-summary strong{font:800 12px Manrope;color:#263b67}
+
+.import-errors{margin-top:12px;padding:10px 12px;border:1px solid #f1dfb5;background:#fffbf1;border-radius:9px;display:grid;gap:8px}
+.import-errors>strong{font-size:10px;color:#8b641f}
+.import-errors>div{display:grid;gap:3px}
+.import-errors b{font-size:10px;color:#5d4a2a}
+.import-errors span,.import-errors small{font-size:10px;color:#8a7551;line-height:1.4}
