@@ -230,6 +230,7 @@ function TpoDashboard() {
   const [recruiters, setRecruiters] = useState([]);
   const [file, setFile] = useState(null);
   const [notice, setNotice] = useState('');
+  const [importErrors, setImportErrors] = useState([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -248,6 +249,7 @@ function TpoDashboard() {
     try {
       const result = await api('/tpo/student-roster/import/', { method: 'POST', body: form });
       setNotice(`Imported ${result.created} students · skipped ${result.skipped_existing} existing · ${result.error_count} invalid rows.`);
+      setImportErrors(result.errors || []);
       setFile(null); await load();
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
@@ -266,6 +268,7 @@ function TpoDashboard() {
       <section className="panel"><div className="panel-heading"><div><h3>Bulk student onboarding</h3><p>Upload the official CSV or Excel roster.</p></div><Tag tone="blue">CSV / XLSX</Tag></div>
         <form className="upload-box" onSubmit={upload}><label className="file-pick">＋ <span>{file ? file.name : 'Choose roster file'}</span><input type="file" accept=".csv,.xlsx" onChange={e => setFile(e.target.files?.[0] || null)} /></label><button className="btn primary" disabled={!file || busy}>{busy ? 'Importing…' : 'Import roster'}</button></form>
         <p className="hint">Required columns: roll_number, full_name, college_email. Existing records are never overwritten.</p>
+        {importErrors.length>0&&<div className="import-errors"><strong>Rows needing correction</strong>{importErrors.slice(0,8).map(item=><div key={item.row}><b>Row {item.row} · {item.roll_number || 'No roll number'}</b><span>{item.errors.join('; ')}</span></div>)}{importErrors.length>8&&<small>And {importErrors.length-8} more invalid rows. Correct the file and upload again.</small>}</div>}
         <a className="inline-link" href="/student_roster_template.csv" target="_blank" rel="noreferrer">Download CSV template ↗</a>
       </section>
       <section className="panel"><div className="panel-heading"><div><h3>Recruiter approvals</h3><p>Only approved recruiters can publish drives.</p></div><Tag>{recruiters.length} pending</Tag></div>
