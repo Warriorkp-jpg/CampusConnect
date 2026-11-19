@@ -65,7 +65,34 @@ function Login() {
       {error && <div className="alert error">{error}</div>}
       <button className="btn primary full" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'} <span>→</span></button>
     </form>
-    <p className="auth-switch">New student? <Link to="/register">Create an account</Link></p>
+    <p className="auth-switch">New student? <Link to="/register">Create an account</Link></p><p className="auth-switch">Hiring team? <Link to="/register/recruiter">Register your company</Link></p>
+  </AuthShell>;
+}
+
+function RecruiterRegister() {
+  const [form,setForm] = useState({username:'',email:'',company_name:'',phone_number:'',password:''});
+  const [error,setError] = useState('');
+  const [busy,setBusy] = useState(false);
+  const navigate = useNavigate();
+  async function submit(event) {
+    event.preventDefault();setError('');setBusy(true);
+    try {
+      await api('/register/recruiter/',{method:'POST',body:JSON.stringify(form)},false);
+      navigate('/login',{state:{notice:'Recruiter account submitted. Wait for TPO approval before publishing drives.'}});
+    } catch(err){setError(err.message);}
+    finally{setBusy(false);}
+  }
+  return <AuthShell eyebrow="RECRUITER ONBOARDING" title="Register your company" subtitle="Create a recruiter account. The TPO will review and approve it before hiring tools are enabled.">
+    <form className="form-stack" onSubmit={submit}>
+      <label>Username<input required value={form.username} onChange={e=>setForm({...form,username:e.target.value})} autoComplete="username"/></label>
+      <label>Company name<input required value={form.company_name} onChange={e=>setForm({...form,company_name:e.target.value})}/></label>
+      <label>Work email<input type="email" required value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label>
+      <label>Phone number<input value={form.phone_number} onChange={e=>setForm({...form,phone_number:e.target.value})}/></label>
+      <label>Password<input type="password" minLength={8} required value={form.password} onChange={e=>setForm({...form,password:e.target.value})} autoComplete="new-password"/></label>
+      {error&&<div className="alert error">{error}</div>}
+      <button className="btn primary full" disabled={busy}>{busy?'Submitting…':'Submit for TPO approval →'}</button>
+    </form>
+    <p className="auth-switch">Already have an account? <Link to="/login">Sign in</Link></p>
   </AuthShell>;
 }
 
@@ -420,6 +447,7 @@ export default function App() {
   return <Routes>
     <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
     <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
+    <Route path="/register/recruiter" element={user ? <Navigate to="/" replace /> : <RecruiterRegister />} />
     <Route path="/" element={<Protected><Dashboard /></Protected>} />
     <Route path="*" element={<RootRedirect />} />
   </Routes>;
