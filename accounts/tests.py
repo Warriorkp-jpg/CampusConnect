@@ -140,7 +140,7 @@ class StudentRosterBulkImportTests(APITestCase):
             roll_number='JMIT201', full_name='Original Name', cgpa=Decimal('7.00')
         )
         response = self.upload_csv(
-            'roll_number,full_name\nJMIT201,Changed Name\nJMIT202,New Student\n'
+            'roll_number,full_name,college_email\nJMIT201,Changed Name,old@jmit.example\nJMIT202,New Student,new@jmit.example\n'
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['created'], 1)
