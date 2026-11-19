@@ -70,3 +70,22 @@ class StudentEmailOTP(models.Model):
 
     def __str__(self):
         return f'Student email verification for {self.roll_number}'
+
+
+def student_resume_path(instance, filename):
+    extension = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'pdf'
+    return f'student_resumes/{instance.user_id}/{uuid.uuid4().hex}.{extension}'
+
+
+class StudentProfile(models.Model):
+    user = models.OneToOneField(
+        'accounts.User', on_delete=models.CASCADE, related_name='student_profile'
+    )
+    skills = models.TextField(blank=True)
+    github_url = models.URLField(blank=True)
+    linkedin_url = models.URLField(blank=True)
+    resume = models.FileField(upload_to=student_resume_path, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'Student profile: {self.user.username}'
