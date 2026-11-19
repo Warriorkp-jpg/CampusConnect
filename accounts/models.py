@@ -53,7 +53,7 @@ class StudentRoster(models.Model):
 class StudentEmailOTP(models.Model):
     """Short-lived, hashed email verification challenge for student onboarding."""
     challenge_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    roll_number = models.CharField(max_length=30, db_index=True)
+    roll_number = models.CharField(max_length=30)
     code_hash = models.CharField(max_length=128)
     expires_at = models.DateTimeField()
     attempts = models.PositiveSmallIntegerField(default=0)
