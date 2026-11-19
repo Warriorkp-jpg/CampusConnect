@@ -57,9 +57,22 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [
     origin.strip() for origin in os.environ.get(
         'CORS_ALLOWED_ORIGINS',
-        'http://127.0.0.1:5500,http://localhost:5500,http://127.0.0.1:8000'
+        'http://127.0.0.1:5500,http://localhost:5500,http://127.0.0.1:8000,http://localhost:5173,http://127.0.0.1:5173'
     ).split(',') if origin.strip()
 ]
 CORS_ALLOW_ALL_ORIGINS = False
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
+
+
+# Student OTP email: console backend is safe for local development.
+# Configure SMTP environment variables to deliver real emails.
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend'
+)
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'CampusConnect <no-reply@campusconnect.local>')
