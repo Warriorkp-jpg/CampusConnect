@@ -138,6 +138,30 @@ function Register() {
   </AuthShell>;
 }
 
+function NotificationBell() {
+  const [items,setItems] = useState([]);
+  const [open,setOpen] = useState(false);
+  const [error,setError] = useState('');
+  async function load() {
+    try { const result = await api('/notifications/'); setItems(safeList(result)); setError(''); }
+    catch(err){setError(err.message);}
+  }
+  useEffect(()=>{load();},[]);
+  const unread = items.filter(item=>!item.is_read).length;
+  async function markRead(item) {
+    if(item.is_read) return;
+    try { await api(`/notifications/${item.id}/`,{method:'PATCH',body:JSON.stringify({is_read:true})}); await load(); }
+    catch(err){setError(err.message);}
+  }
+  return <div className="notification-wrap">
+    <button className="notification-trigger" onClick={()=>{setOpen(!open);if(!open)load();}} aria-label="Notifications">♧{unread>0&&<span>{unread>9?'9+':unread}</span>}</button>
+    {open&&<div className="notification-popover"><div className="notification-head"><strong>Notifications</strong><button className="btn small" onClick={load}>Refresh</button></div>
+      {error&&<p className="notification-error">{error}</p>}
+      {items.length?items.slice(0,8).map(item=><button className={item.is_read?'notification-item':'notification-item unread'} key={item.id} onClick={()=>markRead(item)}><strong>{item.title}</strong><span>{item.message}</span><small>{new Date(item.created_at).toLocaleString()}</small></button>):<div className="empty compact">You're all caught up.</div>}
+    </div>}
+  </div>;
+}
+
 function AppLayout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -154,7 +178,7 @@ function AppLayout({ children }) {
       <div className="sidebar-bottom"><div className="avatar">{(user.first_name || user.username || 'U').slice(0,1).toUpperCase()}</div><div className="user-mini"><strong>{user.first_name || user.username}</strong><small>{roleLabel}</small></div><button className="icon-btn" onClick={logout} title="Sign out">↗</button></div>
     </aside>
     <main className="main-area">
-      <header className="topbar"><button className="mobile-menu" onClick={() => setMenuOpen(!menuOpen)}>☰</button><div><span className="crumb">CampusConnect</span><span className="crumb-sep"> / </span><strong>{roleLabel}</strong></div><div className="topbar-right"><span className="status-dot" /> JMIT Campus</div></header>
+      <header className="topbar"><button className="mobile-menu" onClick={() => setMenuOpen(!menuOpen)}>☰</button><div><span className="crumb">CampusConnect</span><span className="crumb-sep"> / </span><strong>{roleLabel}</strong></div><div className="topbar-right"><NotificationBell /><span className="status-dot" /> JMIT Campus</div></header>
       <div className="page-content">{children}</div>
     </main>
   </div>;
