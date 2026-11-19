@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import StudentRoster, StudentProfile
+from .models import StudentRoster, StudentProfile, Notification
 
 User = get_user_model()
 
@@ -198,3 +198,11 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         if replacement and old_resume:
             old_resume.delete(save=False)
         return profile
+
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ('id', 'title', 'message', 'category', 'is_read', 'created_at')
+        read_only_fields = ('id', 'title', 'message', 'category', 'created_at')
