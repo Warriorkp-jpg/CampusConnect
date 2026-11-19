@@ -3,11 +3,13 @@ from rest_framework import generics, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework import status
 from django.contrib.auth import get_user_model
 
 from .models import StudentRoster
+from .roster_import import import_student_roster, RosterImportError
 from .serializers import (
     StudentRegisterSerializer, RecruiterRegisterSerializer, UserProfileSerializer,
     StudentRosterSerializer, RecruiterReviewSerializer
@@ -117,3 +119,23 @@ class StudentRosterViewSet(viewsets.ModelViewSet):
         page = self.paginate_queryset(records)
         serializer = self.get_serializer(page if page is not None else records, many=True)
         return self.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)
+
+
+
+class StudentRosterImportView(APIView):
+    """Bulk-import official student records from a CSV or XLSX upload."""
+    permission_classes = [IsTPORole]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return Response(
+                {'detail': 'Upload a CSV or XLSX file using the file field.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            result = import_student_roster(uploaded_file)
+        except RosterImportError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result, status=status.HTTP_200_OK)
