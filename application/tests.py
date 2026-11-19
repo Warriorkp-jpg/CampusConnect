@@ -99,3 +99,24 @@ class ApplicationPipelineTests(APITestCase):
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+    def test_new_application_and_stage_changes_create_notifications(self):
+        self.client.force_authenticate(self.student_a)
+        created = self.client.post(
+            '/api/application/',
+            {'drive': self.drive.id},
+            format='json',
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(self.recruiter.notifications.filter(category='APPLICATION').exists())
+
+        application_id = created.data['id']
+        self.client.force_authenticate(self.recruiter)
+        updated = self.client.patch(
+            f'/api/application/{application_id}/',
+            {'status': 'SHORTLISTED'},
+            format='json',
+        )
+        self.assertEqual(updated.status_code, status.HTTP_200_OK)
+        self.assertTrue(self.student_a.notifications.filter(title='Application status updated').exists())
