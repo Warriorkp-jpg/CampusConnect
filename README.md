@@ -1,67 +1,78 @@
 # CampusConnect — JMIT Placement Management Portal
 
-CampusConnect is a single-college placement portal for JMIT, built with Django, Django REST Framework, SimpleJWT and a Bootstrap/Vanilla JavaScript frontend.
+CampusConnect is a single-college placement management portal for JMIT. The existing backend uses Django, Django REST Framework, SimpleJWT and SQLite. The React frontend and verified student onboarding are being introduced incrementally on the upgrade branch.
 
 ## Roles
-- **Student:** registers with a college roll number present in the TPO-maintained roster, signs in with roll number and password, views active drives, applies when eligible and tracks application decisions.
-- **Recruiter:** registers with company details. New accounts are PENDING; a TPO must approve them before they can publish drives or review applicants. Recruiters can only access applications for their own drives.
-- **TPO:** manages the student roster, approves/rejects recruiters, monitors all drives and applications, and has placement-wide visibility.
 
-TPO accounts are created by a trusted administrator using Django admin or createsuperuser followed by assigning the TPO role. There is no public TPO registration endpoint.
+- **Student:** registers using a roll number present in the TPO-maintained roster, views drives, applies when eligible and tracks application decisions.
+- **Recruiter:** registers with company details. New accounts remain pending until approved by a TPO. Recruiters can manage their own drives and applicants.
+- **TPO:** manages the student roster, approves recruiters and monitors drives and applications across the institution.
 
-## Features
-- JWT login; student username is set to their verified roll number.
-- College roster verification prevents arbitrary roll-number registration. The roster must be populated by the TPO before students can register.
-- Server-assigned roles; public registration cannot choose a role.
+TPO accounts are created by a trusted administrator using Django admin. There is no public TPO registration endpoint.
+
+## Current backend features
+
+- JWT authentication and server-assigned roles.
+- Student roster verification and roster-backed academic eligibility data.
 - Recruiter approval workflow.
-- Drive creation, editing and deletion by approved recruiters (own drives) or TPO.
+- Drive creation and management.
 - CGPA/backlog eligibility checks and duplicate application protection.
-- Application progression: APPLIED -> SHORTLISTED -> SELECTED or REJECTED.
-- Queryset-level isolation for student and recruiter application visibility.
-- TPO dashboard, roster management, CSV/XLSX bulk roster import and recruiter review endpoints.
-- Environment-based secret key, debug setting, allowed hosts and CORS origins.
+- Application status updates and role-based queryset isolation.
+- TPO dashboard and roster management.
+- TPO-only CSV/XLSX bulk roster import with row-level validation.
 
-## Tech stack
-- Python 3.11+ (use a Python version supported by the installed Django release)
-- Django / Django REST Framework / SimpleJWT
-- SQLite for local development
-- Bootstrap 5 and vanilla JavaScript
+## Bulk student roster import
 
-## Setup
-1. Clone the repository and enter the project folder.
-2. Create and activate a virtual environment.
-3. Install dependencies: pip install -r requirements.txt
-4. Set environment variables. At minimum, set a strong DJANGO_SECRET_KEY for any shared/deployed environment. The settings module reads environment variables directly; it does not load a .env file automatically.
-5. Back up any existing db.sqlite3, then run:
-   python manage.py migrate
-   python manage.py createsuperuser
-   python manage.py runserver
-6. Sign in to /admin/. Assign a trusted account the application role TPO (the Django superuser flag is separate from the CampusConnect role).
-7. In the TPO portal, import the student roster in bulk using `docs/student_roster_template.csv`, or add records individually. The bulk importer requires roll number, full name and college email; CGPA, backlogs, program and batch are optional.\n8. Students can then register with roster roll numbers. Email OTP verification is planned for the next onboarding phase.
-8. Recruiters register through the portal and wait for TPO approval.
+Use the sample file at `docs/student_roster_template.csv`.
 
-Open index.html using a local static server such as VS Code Live Server at http://127.0.0.1:5500. Set the frontend API base URL to your backend URL if it differs from http://127.0.0.1:8000.
+Endpoint: `POST /api/tpo/student-roster/import/`
+
+Send a multipart form request with the uploaded file in the `file` field. Supported formats are `.csv` and `.xlsx`. Uploads are limited to 5 MB and 5,000 data rows.
+
+Required columns: `roll_number`, `full_name`, `college_email`.
+
+Optional columns: `program`, `batch`, `cgpa`, `backlogs`.
+
+The importer validates each row, reports row-level errors, skips existing roll numbers without overwriting their records, and inserts valid new records. Only users with the TPO role can access this endpoint.
 
 ## API overview
+
 | Endpoint | Access | Purpose |
 |---|---|---|
-| POST /api/register/student/ | Public | Student registration; requires roster roll number |
-| POST /api/register/recruiter/ | Public | Recruiter registration; status becomes PENDING |
-| POST /api/login/ | Public | JWT login; student username is their roll number |
-| GET /api/me/ | Authenticated | Current account profile and role |
-| GET /api/student-zone/ | Student | Student dashboard |
-| GET /api/recruiter-zone/ | Recruiter | Recruiter dashboard and approval status |
-| GET /api/tpo-zone/ | TPO | Placement overview counts |
-| GET /api/tpo/recruiters/pending/ | TPO | Pending recruiter approvals |
-| PATCH /api/tpo/recruiters/{id}/review/ | TPO | Set recruiter status to APPROVED or REJECTED |
-| /api/tpo/student-roster/ | TPO | List/add/delete eligible student roster entries |\n| POST /api/tpo/student-roster/import/ | TPO | Bulk import student records from CSV/XLSX with row-level validation |
-| /api/drive/ | Authenticated | List/retrieve drives; approved recruiters manage own drives; TPO manages all |
-| /api/application/ | Authenticated | Students create/view own applications; recruiters view/review own-drive applicants; TPO views all |
+| POST `/api/register/student/` | Public | Current student registration flow; OTP upgrade is planned |
+| POST `/api/register/recruiter/` | Public | Recruiter registration; account starts pending |
+| POST `/api/login/` | Public | Obtain JWT tokens |
+| GET `/api/me/` | Authenticated | Current account profile and role |
+| GET `/api/student-zone/` | Student | Student dashboard |
+| GET `/api/recruiter-zone/` | Recruiter | Recruiter dashboard and approval status |
+| GET `/api/tpo-zone/` | TPO | Placement overview |
+| GET `/api/tpo/recruiters/pending/` | TPO | Pending recruiter approvals |
+| PATCH `/api/tpo/recruiters/{id}/review/` | TPO | Approve or reject a recruiter |
+| `/api/tpo/student-roster/` | TPO | List and manage roster entries |
+| POST `/api/tpo/student-roster/import/` | TPO | Bulk import CSV/XLSX roster |
+| `/api/drive/` | Authenticated | Browse and manage placement drives |
+| `/api/application/` | Authenticated | Apply and manage application decisions |
 
-## Important notes
-- A roll number alone is not proof of enrollment. Student registration succeeds only if the TPO has first entered that roll number in the roster.
-- Student registration currently accepts CGPA and backlog values from the student. For production use, import academic values from an authoritative college record rather than trusting self-reported values.
-- The portal stores JWTs in browser session storage. Use HTTPS in deployment and never expose tokens in logs or screenshots.
-- Configure a production database, HTTPS, secure settings, trusted CORS origins, secret management and backups before public launch.
-- Run automated tests with python manage.py test.
-\n### Bulk roster import\n\nUse `POST /api/tpo/student-roster/import/` with multipart form field `file`. Supported formats are `.csv` and `.xlsx`; uploads are limited to 5 MB and 5,000 data rows. The endpoint is TPO-only. It validates rows, reports invalid entries, skips roll numbers already in the roster without overwriting them, and imports valid new rows. A sample template is available at `docs/student_roster_template.csv`.\n
+## Local setup
+
+1. Clone the repository and enter the project folder.
+2. Create and activate a Python virtual environment.
+3. Install dependencies: `pip install -r requirements.txt`.
+4. Set a strong `DJANGO_SECRET_KEY` for any shared or deployed environment.
+5. Run `python manage.py migrate`.
+6. Create an administrator using `python manage.py createsuperuser`.
+7. Assign the trusted TPO account the application role `TPO` in Django admin.
+8. Run `python manage.py runserver`.
+
+SQLite remains the selected development database. Keep `db.sqlite3` out of Git and back it up before migration changes.
+
+## Upgrade roadmap
+
+The upgrade branch is being developed in phases: bulk roster import, student email OTP verification, React application foundation, improved role dashboards, recruiter candidate workflows, application pipeline, notifications, analytics and automated tests.
+
+## Important security notes
+
+- A roll number must exist in the official TPO roster before student onboarding.
+- OTP verification will prove access to the roster email address; roster membership remains the source of truth for eligibility.
+- Configure HTTPS, secure secret management, trusted CORS origins and backups before public deployment.
+- Run backend tests with `python manage.py test`.
