@@ -19,3 +19,9 @@
 .interview-tools label{display:grid;gap:6px;font-size:10px;font-weight:700;color:#667085}
 @media(max-width:900px){.filter-bar{grid-template-columns:1fr 1fr}.filter-bar input:first-child{grid-column:span 2}}
 @media(max-width:520px){.filter-bar{grid-template-columns:1fr}.filter-bar input:first-child{grid-column:auto}.interview-tools{align-items:stretch;flex-direction:column}}
+
+.profile-actions{grid-column:span 2;display:flex;gap:9px;flex-wrap:wrap}
+.portfolio-cell{display:grid;gap:5px;white-space:normal;min-width:110px;max-width:190px}
+.portfolio-cell small{font-size:10px;color:#7c8799;line-height:1.4}
+.portfolio-cell a{font-size:10px;color:#3559e0;font-weight:700}
+@media(max-width:520px){.profile-actions{grid-column:auto}}
