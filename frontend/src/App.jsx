@@ -256,26 +256,46 @@ function RecruiterDashboard() {
   const [summary,setSummary] = useState(null);
   const [drives,setDrives] = useState([]);
   const [applications,setApplications] = useState([]);
+  const [selectedIds,setSelectedIds] = useState([]);
+  const [filters,setFilters] = useState({search:'',min_cgpa:'',max_backlogs:'',status:''});
+  const [interviewAt,setInterviewAt] = useState('');
+  const [interviewMode,setInterviewMode] = useState('ONLINE');
   const [form,setForm] = useState({role_title:'',description:'',location:'',package_lpa:'',min_cgpa:'6',max_backlogs:'0',application_deadline:''});
   const [error,setError] = useState('');
   const [notice,setNotice] = useState('');
   async function load() {
-    try { const [s,d,a] = await Promise.all([api('/recruiter-zone/'),api('/drive/'),api('/application/')]); setSummary(s);setDrives(safeList(d));setApplications(safeList(a)); }
-    catch(err){setError(err.message);}
+    try {
+      const query = new URLSearchParams(Object.entries(filters).filter(([,value])=>value!=='')).toString();
+      const [s,d,a] = await Promise.all([api('/recruiter-zone/'),api('/drive/'),api('/application/'+(query?'?'+query:''))]);
+      setSummary(s);setDrives(safeList(d));setApplications(safeList(a));
+      setSelectedIds(current=>current.filter(id=>safeList(a).some(item=>item.id===id)));
+    } catch(err){setError(err.message);}
   }
-  useEffect(()=>{load();},[]);
+  useEffect(()=>{load();},[filters]);
   async function createDrive(e){
     e.preventDefault();setError('');setNotice('');
     try { await api('/drive/',{method:'POST',body:JSON.stringify({...form,package_lpa:Number(form.package_lpa),min_cgpa:Number(form.min_cgpa),max_backlogs:Number(form.max_backlogs),is_active:true})});setNotice('Placement drive created.');setForm({role_title:'',description:'',location:'',package_lpa:'',min_cgpa:'6',max_backlogs:'0',application_deadline:''});await load();}
     catch(err){setError(err.message);}
   }
-  async function updateStatus(id,status){
-    try{await api(`/application/${id}/`,{method:'PATCH',body:JSON.stringify({status})});await load();}
+  async function updateStatus(id,statusValue,extra={}) {
+    setError('');
+    try{await api(`/application/${id}/`,{method:'PATCH',body:JSON.stringify({status:statusValue,...extra})});setNotice('Candidate status updated.');await load();}
     catch(err){setError(err.message);}
   }
+  async function bulkUpdate(statusValue) {
+    setError('');
+    try {
+      await api('/application/bulk-status/',{method:'POST',body:JSON.stringify({application_ids:selectedIds,status:statusValue})});
+      setSelectedIds([]);setNotice(`Updated ${selectedIds.length} candidates.`);await load();
+    } catch(err){setError(err.message);}
+  }
+  function toggleSelected(id) {
+    setSelectedIds(current=>current.includes(id)?current.filter(value=>value!==id):[...current,id]);
+  }
+  const selectable = applications.filter(a=>['APPLIED','SHORTLISTED'].includes(a.status));
   return <><PageHeader eyebrow="RECRUITER WORKSPACE" title="Hiring dashboard" subtitle="Publish opportunities and manage candidates for your placement drives." />
     {error&&<div className="alert error">{error}</div>}{notice&&<div className="alert success">{notice}</div>}
-    <div className="stats-grid"><Stat label="Approval status" value={summary?.approval_status} note="TPO verification" /><Stat label="Your drives" value={drives.length} note="Published opportunities" /><Stat label="Applicants" value={applications.length} note="Across your drives" /></div>
+    <div className="stats-grid"><Stat label="Approval status" value={summary?.approval_status} note="TPO verification" /><Stat label="Your drives" value={drives.length} note="Published opportunities" /><Stat label="Applicants" value={applications.length} note="Across filtered results" /></div>
     {summary?.approval_status !== 'APPROVED' ? <div className="panel section-gap"><h3>Account awaiting approval</h3><p className="muted">The TPO must approve your recruiter account before you can publish drives or review candidates.</p><Tag tone="amber">{summary?.approval_status || 'PENDING'}</Tag></div> : <>
       <div className="content-grid section-gap"><section className="panel"><div className="panel-heading"><div><h3>Create a placement drive</h3><p>Publish a role for eligible students.</p></div></div>
         <form className="form-grid" onSubmit={createDrive}>
@@ -292,8 +312,31 @@ function RecruiterDashboard() {
         {drives.map(d=><div className="drive-row" key={d.id}><div><strong>{d.role_title}</strong><small>{d.location || 'Location not specified'} · {d.package_lpa} LPA</small></div><Tag tone={d.is_open?'green':'amber'}>{d.is_open?'Open':'Closed'}</Tag></div>)}
         {!drives.length&&<div className="empty compact">No drives posted yet.</div>}
       </section></div>
-      <section className="panel section-gap"><div className="panel-heading"><div><h3>Candidate applications</h3><p>Review applicants and update their placement stage.</p></div></div>
-        <DataTable columns={[{key:'student_roll_number',label:'Roll number'},{key:'student_name',label:'Student'},{key:'role_title',label:'Role'},{key:'student_cgpa',label:'CGPA'},{key:'status',label:'Current stage',render:a=><Tag>{a.status}</Tag>},{key:'actions',label:'Update',render:a=><div className="row-actions">{a.status==='APPLIED'?<><button className="btn small" onClick={()=>updateStatus(a.id,'SHORTLISTED')}>Shortlist</button><button className="btn small danger" onClick={()=>updateStatus(a.id,'REJECTED')}>Reject</button></>:a.status==='SHORTLISTED'?<><button className="btn small primary" onClick={()=>updateStatus(a.id,'SELECTED')}>Select</button><button className="btn small danger" onClick={()=>updateStatus(a.id,'REJECTED')}>Reject</button></>:<Tag tone={a.status==='SELECTED'?'green':'red'}>{a.status}</Tag>}</div>}]} rows={applications} />
+      <section className="panel section-gap"><div className="panel-heading"><div><h3>Candidate pipeline</h3><p>Filter candidates and update their recruitment stage.</p></div><Tag>{applications.length} results</Tag></div>
+        <div className="filter-bar">
+          <input aria-label="Search candidates" placeholder="Search name, roll number or role" value={filters.search} onChange={e=>setFilters({...filters,search:e.target.value})}/>
+          <input aria-label="Minimum CGPA" type="number" min="0" max="10" step="0.1" placeholder="Min CGPA" value={filters.min_cgpa} onChange={e=>setFilters({...filters,min_cgpa:e.target.value})}/>
+          <input aria-label="Maximum backlogs" type="number" min="0" placeholder="Max backlogs" value={filters.max_backlogs} onChange={e=>setFilters({...filters,max_backlogs:e.target.value})}/>
+          <select aria-label="Filter by status" value={filters.status} onChange={e=>setFilters({...filters,status:e.target.value})}><option value="">All stages</option>{['APPLIED','SHORTLISTED','INTERVIEW','SELECTED','REJECTED'].map(s=><option key={s}>{s}</option>)}</select>
+        </div>
+        {selectedIds.length>0&&<div className="bulk-bar"><strong>{selectedIds.length} selected</strong><button className="btn small" onClick={()=>bulkUpdate('SHORTLISTED')}>Bulk shortlist</button><button className="btn small danger" onClick={()=>bulkUpdate('REJECTED')}>Bulk reject</button><button className="btn small text-btn" onClick={()=>setSelectedIds([])}>Clear</button></div>}
+        <DataTable columns={[
+          {key:'select',label:'',render:a=>selectable.some(x=>x.id===a.id)?<input aria-label={`Select ${a.student_roll_number}`} type="checkbox" checked={selectedIds.includes(a.id)} onChange={()=>toggleSelected(a.id)}/>:null},
+          {key:'student_roll_number',label:'Roll number'},
+          {key:'student_name',label:'Student'},
+          {key:'role_title',label:'Role'},
+          {key:'student_cgpa',label:'CGPA'},
+          {key:'student_backlogs',label:'Backlogs'},
+          {key:'status',label:'Current stage',render:a=><Tag>{a.status}</Tag>},
+          {key:'interview_at',label:'Interview',render:a=>a.interview_at?new Date(a.interview_at).toLocaleString():'—'},
+          {key:'actions',label:'Update',render:a=><div className="row-actions">
+            {a.status==='APPLIED'&&<><button className="btn small" onClick={()=>updateStatus(a.id,'SHORTLISTED')}>Shortlist</button><button className="btn small danger" onClick={()=>updateStatus(a.id,'REJECTED')}>Reject</button></>}
+            {a.status==='SHORTLISTED'&&<><button className="btn small primary" disabled={!interviewAt} onClick={()=>updateStatus(a.id,'INTERVIEW',{interview_at:new Date(interviewAt).toISOString(),interview_mode:interviewMode})}>Schedule interview</button><button className="btn small" onClick={()=>updateStatus(a.id,'SELECTED')}>Select</button><button className="btn small danger" onClick={()=>updateStatus(a.id,'REJECTED')}>Reject</button></>}
+            {a.status==='INTERVIEW'&&<><button className="btn small primary" onClick={()=>updateStatus(a.id,'SELECTED')}>Select</button><button className="btn small danger" onClick={()=>updateStatus(a.id,'REJECTED')}>Reject</button></>}
+            {['SELECTED','REJECTED'].includes(a.status)&&<Tag tone={a.status==='SELECTED'?'green':'red'}>{a.status}</Tag>}
+          </div>}
+        ]} rows={applications} />
+        <div className="interview-tools"><label>Interview date & time<input type="datetime-local" value={interviewAt} onChange={e=>setInterviewAt(e.target.value)}/></label><label>Mode<select value={interviewMode} onChange={e=>setInterviewMode(e.target.value)}><option value="ONLINE">Online</option><option value="IN_PERSON">In person</option></select></label></div>
       </section>
     </>}
   </>;
