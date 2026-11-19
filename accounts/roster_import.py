@@ -130,17 +130,17 @@ def import_student_roster(uploaded_file):
         elif len(full_name) > 150:
             row_errors.append("full_name must be 150 characters or fewer")
 
-        email = str(_cell(row, positions.get("college_email", -1)) or "").strip()
+        email = str(_cell(row, positions.get("college_email")) or "").strip()
         if email:
             try:
                 validate_email(email)
             except DjangoValidationError:
                 row_errors.append("college_email is not a valid email address")
 
-        program = str(_cell(row, positions.get("program", -1)) or "B.Tech CSE").strip() or "B.Tech CSE"
-        batch = str(_cell(row, positions.get("batch", -1)) or "").strip()
+        program = str(_cell(row, positions.get("program")) or "B.Tech CSE").strip() or "B.Tech CSE"
+        batch = str(_cell(row, positions.get("batch")) or "").strip()
 
-        raw_cgpa = _cell(row, positions.get("cgpa", -1))
+        raw_cgpa = _cell(row, positions.get("cgpa"))
         try:
             cgpa = Decimal(str(raw_cgpa).strip()) if raw_cgpa not in (None, "") else Decimal("0.00")
             if not cgpa.is_finite() or cgpa < 0 or cgpa > 10:
@@ -149,7 +149,7 @@ def import_student_roster(uploaded_file):
             cgpa = Decimal("0.00")
             row_errors.append("cgpa must be a valid number")
 
-        raw_backlogs = _cell(row, positions.get("backlogs", -1))
+        raw_backlogs = _cell(row, positions.get("backlogs"))
         try:
             numeric_backlogs = Decimal(str(raw_backlogs).strip()) if raw_backlogs not in (None, "") else Decimal(0)
             if not numeric_backlogs.is_finite() or numeric_backlogs != numeric_backlogs.to_integral_value() or numeric_backlogs < 0:
