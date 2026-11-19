@@ -9,6 +9,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from accounts.permissions import IsStudentRole, IsApprovedRecruiter, IsTPORole
+from accounts.notifications import notify_user
 from .models import Application
 from .serializers import ApplicationSerializer
 
@@ -94,7 +95,14 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         try:
             with transaction.atomic():
-                serializer.save(student=self.request.user)
+                application = serializer.save(student=self.request.user)
+                recruiter = application.drive.posted_by
+                transaction.on_commit(lambda: notify_user(
+                    recruiter,
+                    'New placement application',
+                    f'{application.student.get_full_name() or application.student.roll_number} applied for {application.drive.role_title}.',
+                    'APPLICATION',
+                ))
         except IntegrityError:
             raise ValidationError({'drive': 'You have already applied to this placement drive.'})
 
@@ -102,7 +110,15 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         if self.request.user.role == 'RECRUITER':
             if serializer.instance.drive.posted_by_id != self.request.user.id:
                 raise PermissionDenied('You can only review applications to your own drives.')
-        serializer.save()
+        previous_status = serializer.instance.status
+        application = serializer.save()
+        if application.status != previous_status:
+            transaction.on_commit(lambda: notify_user(
+                application.student,
+                'Application status updated',
+                f'Your application for {application.drive.role_title} is now {application.status.lower()}.',
+                'APPLICATION',
+            ))
 
     @action(detail=False, methods=['post'], url_path='bulk-status')
     def bulk_status(self, request):
@@ -133,6 +149,15 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             item.is_valid(raise_exception=True)
             serializers.append(item)
 
+        previous_statuses = {item.instance.id: item.instance.status for item in serializers}
         with transaction.atomic():
             updated = [item.save() for item in serializers]
+            for application in updated:
+                if application.status != previous_statuses[application.id]:
+                    transaction.on_commit(lambda app=application: notify_user(
+                        app.student,
+                        'Application status updated',
+                        f'Your application for {app.drive.role_title} is now {app.status.lower()}.',
+                        'APPLICATION',
+                    ))
         return Response(self.get_serializer(updated, many=True).data, status=status.HTTP_200_OK)
