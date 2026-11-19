@@ -110,6 +110,8 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         next_status = request.data.get('status')
         if not isinstance(application_ids, list) or not application_ids or len(application_ids) > 100:
             raise ValidationError({'application_ids': 'Provide between 1 and 100 application IDs.'})
+        if not all(isinstance(item, int) and not isinstance(item, bool) and item > 0 for item in application_ids):
+            raise ValidationError({'application_ids': 'Every application ID must be a positive integer.'})
         if len(set(application_ids)) != len(application_ids):
             raise ValidationError({'application_ids': 'Duplicate application IDs are not allowed.'})
         valid_statuses = {choice[0] for choice in Application.STATUS_CHOICES}
