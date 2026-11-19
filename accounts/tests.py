@@ -219,7 +219,7 @@ class StudentEmailOTPTests(APITestCase):
 
     def test_wrong_otp_is_rejected(self):
         response = self.request_otp()
-        actual = re.search(r'\\b(\\d{6})\\b', mail.outbox[0].body).group(1)
+        actual = re.search(r'\b(\d{6})\b', mail.outbox[0].body).group(1)
         wrong = f'{(int(actual) + 1) % 1000000:06d}'
         result = self.client.post(
             '/api/register/student/verify-otp/',
