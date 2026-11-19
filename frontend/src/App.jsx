@@ -213,7 +213,7 @@ function TpoDashboard() {
       <section className="panel"><div className="panel-heading"><div><h3>Bulk student onboarding</h3><p>Upload the official CSV or Excel roster.</p></div><Tag tone="blue">CSV / XLSX</Tag></div>
         <form className="upload-box" onSubmit={upload}><label className="file-pick">＋ <span>{file ? file.name : 'Choose roster file'}</span><input type="file" accept=".csv,.xlsx" onChange={e => setFile(e.target.files?.[0] || null)} /></label><button className="btn primary" disabled={!file || busy}>{busy ? 'Importing…' : 'Import roster'}</button></form>
         <p className="hint">Required columns: roll_number, full_name, college_email. Existing records are never overwritten.</p>
-        <a className="inline-link" href="/docs/student_roster_template.csv" target="_blank" rel="noreferrer">Download CSV template ↗</a>
+        <a className="inline-link" href="/student_roster_template.csv" target="_blank" rel="noreferrer">Download CSV template ↗</a>
       </section>
       <section className="panel"><div className="panel-heading"><div><h3>Recruiter approvals</h3><p>Only approved recruiters can publish drives.</p></div><Tag>{recruiters.length} pending</Tag></div>
         {recruiters.length ? recruiters.map(r => <div className="approval-row" key={r.id}><div><strong>{r.company_name}</strong><small>{r.email || r.username}</small></div><div className="row-actions"><button className="btn small primary" onClick={() => review(r.id, 'APPROVED')}>Approve</button><button className="btn small danger" onClick={() => review(r.id, 'REJECTED')}>Reject</button></div></div>) : <div className="empty compact">No pending recruiter approvals.</div>}
