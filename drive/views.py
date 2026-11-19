@@ -21,7 +21,9 @@ class DriveViewSet(viewsets.ModelViewSet):
         if user.role == 'STUDENT':
             return base.filter(
                 Q(application_deadline__isnull=True) | Q(application_deadline__gte=timezone.now()),
-                is_active=True
+                is_active=True,
+                min_cgpa__lte=user.cgpa,
+                max_backlogs__gte=user.backlogs,
             ).filter(
                 Q(posted_by__role='TPO') | Q(
                     posted_by__role='RECRUITER', posted_by__recruiter_status='APPROVED'

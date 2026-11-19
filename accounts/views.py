@@ -1,25 +1,190 @@
 from django.shortcuts import get_object_or_404
+from django.http import FileResponse, Http404, HttpResponse
+import csv
+from django.utils import timezone
+from django.conf import settings
+from django.contrib.auth.hashers import make_password, check_password
+from django.core.mail import send_mail
+from django.db import transaction, IntegrityError
+from datetime import timedelta
+import secrets
+import uuid
 from rest_framework import generics, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework import status
 from django.contrib.auth import get_user_model
 
-from .models import StudentRoster
+from .models import StudentRoster, StudentEmailOTP, StudentProfile
+from .roster_import import import_student_roster, RosterImportError
 from .serializers import (
-    StudentRegisterSerializer, RecruiterRegisterSerializer, UserProfileSerializer,
+    StudentOTPRequestSerializer, StudentOTPVerifySerializer, StudentRegistrationCompleteSerializer,
+    RecruiterRegisterSerializer, UserProfileSerializer, StudentProfileSerializer, NotificationSerializer,
     StudentRosterSerializer, RecruiterReviewSerializer
 )
 from .permissions import IsStudentRole, IsRecruiterRole, IsTPORole
+from application.models import Application
+from drive.models import Drive
+from .notifications import notify_user
 
 User = get_user_model()
 
 
-class StudentRegisterView(generics.CreateAPIView):
-    serializer_class = StudentRegisterSerializer
+OTP_LENGTH = 6
+OTP_LIFETIME_MINUTES = 10
+OTP_RESEND_SECONDS = 60
+OTP_MAX_REQUESTS_PER_HOUR = 5
+OTP_MAX_VERIFY_ATTEMPTS = 5
+
+
+class StudentOTPRequestView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'student_otp'
+
+    def post(self, request):
+        serializer = StudentOTPRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        roll_number = serializer.validated_data['roll_number']
+        now = timezone.now()
+        StudentEmailOTP.objects.filter(expires_at__lt=now - timedelta(days=1)).delete()
+        response_challenge = uuid.uuid4()
+
+        record = StudentRoster.objects.filter(
+            roll_number__iexact=roll_number,
+            student_user__isnull=True,
+        ).first()
+
+        if record and record.college_email:
+            recent = StudentEmailOTP.objects.filter(
+                roll_number__iexact=record.roll_number,
+                created_at__gte=now - timedelta(hours=1),
+            )
+            latest = recent.order_by('-created_at').first()
+            allowed = recent.count() < OTP_MAX_REQUESTS_PER_HOUR
+            if latest and (now - latest.created_at).total_seconds() < OTP_RESEND_SECONDS:
+                allowed = False
+
+            if allowed:
+                StudentEmailOTP.objects.filter(
+                    roll_number__iexact=record.roll_number,
+                    consumed_at__isnull=True,
+                ).update(consumed_at=now)
+                code = f'{secrets.randbelow(10 ** OTP_LENGTH):0{OTP_LENGTH}d}'
+                challenge = StudentEmailOTP.objects.create(
+                    roll_number=record.roll_number,
+                    code_hash=make_password(code),
+                    expires_at=now + timedelta(minutes=OTP_LIFETIME_MINUTES),
+                )
+                subject = 'Your CampusConnect student verification code'
+                message = (
+                    f'Hello {record.full_name},\n\n'
+                    f'Your CampusConnect verification code is {code}. '
+                    f'It expires in {OTP_LIFETIME_MINUTES} minutes.\n\n'
+                    'If you did not request this code, you can ignore this email.'
+                )
+                try:
+                    sent = send_mail(
+                        subject, message, settings.DEFAULT_FROM_EMAIL,
+                        [record.college_email], fail_silently=False,
+                    )
+                    if sent != 1:
+                        challenge.delete()
+                    else:
+                        response_challenge = challenge.challenge_id
+                except Exception:
+                    challenge.delete()
+
+        return Response({
+            'detail': 'If the roll number is eligible, a verification code has been sent to the college email on the roster.',
+            'challenge_id': str(response_challenge),
+        }, status=status.HTTP_200_OK)
+
+
+class StudentOTPVerifyView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'student_otp_verify'
+
+    def post(self, request):
+        serializer = StudentOTPVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        challenge = StudentEmailOTP.objects.filter(
+            challenge_id=serializer.validated_data['challenge_id'],
+            consumed_at__isnull=True,
+        ).first()
+        now = timezone.now()
+
+        if (
+            not challenge or challenge.expires_at <= now
+            or challenge.verified_at is not None
+            or challenge.attempts >= OTP_MAX_VERIFY_ATTEMPTS
+        ):
+            return Response({'detail': 'The verification code is invalid or expired.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        challenge.attempts += 1
+        if not check_password(serializer.validated_data['otp'], challenge.code_hash):
+            challenge.save(update_fields=['attempts'])
+            return Response({'detail': 'The verification code is invalid or expired.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        challenge.verified_at = now
+        challenge.save(update_fields=['attempts', 'verified_at'])
+        return Response({'detail': 'Email verified. Complete your student registration.'})
+
+
+class StudentRegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = StudentRegistrationCompleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        now = timezone.now()
+
+        try:
+            with transaction.atomic():
+                challenge = StudentEmailOTP.objects.select_for_update().get(
+                    challenge_id=serializer.validated_data['challenge_id'],
+                    consumed_at__isnull=True,
+                    verified_at__isnull=False,
+                    expires_at__gt=now,
+                )
+                record = StudentRoster.objects.select_for_update().get(
+                    roll_number__iexact=challenge.roll_number,
+                    student_user__isnull=True,
+                )
+                full_name_parts = record.full_name.split(maxsplit=1)
+                user = User.objects.create_user(
+                    username=record.roll_number,
+                    roll_number=record.roll_number,
+                    email=record.college_email,
+                    first_name=full_name_parts[0] if full_name_parts else '',
+                    last_name=full_name_parts[1] if len(full_name_parts) > 1 else '',
+                    password=serializer.validated_data['password'],
+                    role='STUDENT',
+                    cgpa=record.cgpa,
+                    backlogs=record.backlogs,
+                )
+                record.student_user = user
+                record.save(update_fields=['student_user'])
+                challenge.consumed_at = now
+                challenge.save(update_fields=['consumed_at'])
+        except (StudentEmailOTP.DoesNotExist, StudentRoster.DoesNotExist):
+            return Response(
+                {'detail': 'Verification is incomplete, expired, or this roll number is already registered.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except IntegrityError:
+            return Response(
+                {'detail': 'This student account has already been registered.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        notify_user(user, 'Welcome to CampusConnect', 'Your student account is ready. Explore open placement drives and complete your profile.', 'GENERAL')
+        return Response(UserProfileSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
 class RecruiterRegisterView(generics.CreateAPIView):
@@ -62,14 +227,28 @@ class TPODashboardView(APIView):
     permission_classes = [IsTPORole]
 
     def get(self, request):
+        registered_students = User.objects.filter(role='STUDENT').count()
+        selected_students = Application.objects.filter(
+            status='SELECTED'
+        ).values('student_id').distinct().count()
+        stage_counts = {
+            status_code: Application.objects.filter(status=status_code).count()
+            for status_code, _ in Application.STATUS_CHOICES
+        }
         return Response({
             'message': 'Welcome to the TPO dashboard',
             'role': 'TPO',
             'pending_recruiters': User.objects.filter(
                 role='RECRUITER', recruiter_status='PENDING'
             ).count(),
-            'registered_students': User.objects.filter(role='STUDENT').count(),
+            'registered_students': registered_students,
             'roster_students': StudentRoster.objects.count(),
+            'total_drives': Drive.objects.count(),
+            'active_drives': Drive.objects.filter(is_active=True).count(),
+            'total_applications': Application.objects.count(),
+            'selected_students': selected_students,
+            'placement_rate': round((selected_students / registered_students) * 100, 1) if registered_students else 0,
+            'application_stages': stage_counts,
         })
 
 
@@ -78,6 +257,13 @@ class RecruiterApprovalView(generics.UpdateAPIView):
     serializer_class = RecruiterReviewSerializer
     permission_classes = [IsTPORole]
     http_method_names = ['patch', 'options', 'head']
+
+    def perform_update(self, serializer):
+        recruiter = serializer.save()
+        if recruiter.recruiter_status == 'APPROVED':
+            notify_user(recruiter, 'Recruiter account approved', 'Your company account is approved. You can now publish placement drives.', 'RECRUITER')
+        elif recruiter.recruiter_status == 'REJECTED':
+            notify_user(recruiter, 'Recruiter account update', 'Your recruiter account was not approved. Please contact the TPO office for details.', 'RECRUITER')
 
 
 class PendingRecruitersView(generics.ListAPIView):
@@ -117,3 +303,102 @@ class StudentRosterViewSet(viewsets.ModelViewSet):
         page = self.paginate_queryset(records)
         serializer = self.get_serializer(page if page is not None else records, many=True)
         return self.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)
+
+
+
+class StudentRosterImportView(APIView):
+    """Bulk-import official student records from a CSV or XLSX upload."""
+    permission_classes = [IsTPORole]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return Response(
+                {'detail': 'Upload a CSV or XLSX file using the file field.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            result = import_student_roster(uploaded_file)
+        except RosterImportError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result, status=status.HTTP_200_OK)
+
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+    def get_queryset(self):
+        return self.request.user.notifications.all().order_by('-created_at')
+
+
+class StudentProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = StudentProfileSerializer
+    permission_classes = [IsStudentRole]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_object(self):
+        profile, _ = StudentProfile.objects.get_or_create(user=self.request.user)
+        return profile
+
+
+class StudentResumeDownloadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+        profile = get_object_or_404(StudentProfile, user_id=student_id)
+        user = request.user
+        allowed = user.role == 'TPO' or (
+            user.role == 'STUDENT' and user.id == student_id
+        )
+        if user.role == 'RECRUITER' and user.recruiter_status == 'APPROVED':
+            allowed = Application.objects.filter(
+                student_id=student_id,
+                drive__posted_by=user,
+            ).exists()
+        if not allowed or not profile.resume:
+            raise Http404
+        filename = f'{profile.user.roll_number or profile.user.username}_resume.pdf'
+        return FileResponse(
+            profile.resume.open('rb'),
+            as_attachment=True,
+            filename=filename,
+            content_type='application/pdf',
+        )
+
+
+
+class TPOApplicationExportView(APIView):
+    permission_classes = [IsTPORole]
+
+    def get(self, request):
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="campusconnect-applications.csv"'
+        response.write('\ufeff')
+        writer = csv.writer(response)
+        writer.writerow([
+            'Roll Number', 'Student Name', 'College Email', 'Company',
+            'Role', 'CGPA', 'Backlogs', 'Application Status', 'Applied At',
+            'Interview At', 'Interview Mode',
+        ])
+        applications = Application.objects.select_related(
+            'student', 'drive'
+        ).order_by('-applied_at')
+        for application in applications.iterator():
+            writer.writerow([
+                application.student.roll_number,
+                application.student.get_full_name(),
+                application.student.email,
+                application.drive.company_name,
+                application.drive.role_title,
+                application.student.cgpa,
+                application.student.backlogs,
+                application.status,
+                application.applied_at.isoformat(),
+                application.interview_at.isoformat() if application.interview_at else '',
+                application.interview_mode,
+            ])
+        return response

@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import StudentRoster
+from .models import StudentRoster, StudentProfile, Notification
 
 User = get_user_model()
 
@@ -67,7 +67,10 @@ class RecruiterRegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_password(self, value):
-        validate_password(value)
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
         return value
 
     def create(self, validated_data):
@@ -133,3 +136,76 @@ class CampusConnectTokenObtainPairSerializer(TokenObtainPairSerializer):
                 username = matched_student.username
         attrs['username'] = username
         return super().validate(attrs)
+
+
+
+class StudentOTPRequestSerializer(serializers.Serializer):
+    roll_number = serializers.CharField(max_length=30)
+
+    def validate_roll_number(self, value):
+        return value.strip().upper()
+
+
+class StudentOTPVerifySerializer(serializers.Serializer):
+    challenge_id = serializers.UUIDField()
+    otp = serializers.RegexField(regex=r'^\d{6}$')
+
+
+class StudentRegistrationCompleteSerializer(serializers.Serializer):
+    challenge_id = serializers.UUIDField()
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate_password(self, value):
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
+        return value
+
+
+
+class StudentProfileSerializer(serializers.ModelSerializer):
+    resume = serializers.FileField(write_only=True, required=False)
+    resume_uploaded = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StudentProfile
+        fields = ('skills', 'github_url', 'linkedin_url', 'resume', 'resume_uploaded', 'updated_at')
+        read_only_fields = ('resume_uploaded', 'updated_at')
+
+    def get_resume_uploaded(self, obj):
+        return bool(obj.resume)
+
+    def validate_skills(self, value):
+        if len(value) > 2000:
+            raise serializers.ValidationError('Keep the skills field under 2,000 characters.')
+        return value
+
+    def validate_resume(self, uploaded_file):
+        if uploaded_file.size > 5 * 1024 * 1024:
+            raise serializers.ValidationError('Resume must be 5 MB or smaller.')
+        if not uploaded_file.name.lower().endswith('.pdf'):
+            raise serializers.ValidationError('Only PDF resumes are accepted.')
+        if uploaded_file.content_type not in ('application/pdf', 'application/octet-stream'):
+            raise serializers.ValidationError('The uploaded file must be a PDF.')
+        signature = uploaded_file.read(5)
+        uploaded_file.seek(0)
+        if signature != b'%PDF-':
+            raise serializers.ValidationError('The uploaded file is not a valid PDF.')
+        return uploaded_file
+
+    def update(self, instance, validated_data):
+        old_resume = instance.resume
+        replacement = validated_data.get('resume')
+        profile = super().update(instance, validated_data)
+        if replacement and old_resume:
+            old_resume.delete(save=False)
+        return profile
+
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ('id', 'title', 'message', 'category', 'is_read', 'created_at')
+        read_only_fields = ('id', 'title', 'message', 'category', 'created_at')
