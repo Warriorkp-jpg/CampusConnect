@@ -107,20 +107,22 @@ class ApplicationPipelineTests(APITestCase):
             min_cgpa=6, max_backlogs=1, posted_by=self.recruiter
         )
         self.client.force_authenticate(self.student_a)
-        created = self.client.post(
-            '/api/application/',
-            {'drive': fresh_drive.id},
-            format='json',
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            created = self.client.post(
+                '/api/application/',
+                {'drive': fresh_drive.id},
+                format='json',
+            )
         self.assertEqual(created.status_code, status.HTTP_201_CREATED)
         self.assertTrue(self.recruiter.notifications.filter(category='APPLICATION').exists())
 
         application_id = created.data['id']
         self.client.force_authenticate(self.recruiter)
-        updated = self.client.patch(
-            f'/api/application/{application_id}/',
-            {'status': 'SHORTLISTED'},
-            format='json',
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            updated = self.client.patch(
+                f'/api/application/{application_id}/',
+                {'status': 'SHORTLISTED'},
+                format='json',
+            )
         self.assertEqual(updated.status_code, status.HTTP_200_OK)
         self.assertTrue(self.student_a.notifications.filter(title='Application status updated').exists())
