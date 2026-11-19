@@ -22,6 +22,8 @@ jobs:
           pip install -r requirements.txt
       - name: Check Django configuration
         run: python manage.py check
+      - name: Check migration state
+        run: python manage.py makemigrations --check --dry-run
       - name: Run backend tests
         run: python manage.py test
 
