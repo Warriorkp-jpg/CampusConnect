@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models.functions import Lower
 from openpyxl import load_workbook
 
 from .models import StudentRoster
@@ -178,14 +179,14 @@ def import_student_roster(uploaded_file):
         ))
 
     existing_rolls = set(
-        StudentRoster.objects.filter(
-            roll_number__in=[record.roll_number for record in prepared]
-        ).values_list("roll_number", flat=True)
+        StudentRoster.objects.annotate(normalized_roll=Lower("roll_number"))
+        .filter(normalized_roll__in=[record.roll_number.lower() for record in prepared])
+        .values_list("normalized_roll", flat=True)
     )
     new_records = []
     skipped_existing = 0
     for record in prepared:
-        if record.roll_number in existing_rolls:
+        if record.roll_number.lower() in existing_rolls:
             skipped_existing += 1
         else:
             new_records.append(record)
