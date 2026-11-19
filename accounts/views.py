@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.http import FileResponse, Http404
 from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth.hashers import make_password, check_password
@@ -17,14 +18,15 @@ from rest_framework.decorators import action
 from rest_framework import status
 from django.contrib.auth import get_user_model
 
-from .models import StudentRoster, StudentEmailOTP
+from .models import StudentRoster, StudentEmailOTP, StudentProfile
 from .roster_import import import_student_roster, RosterImportError
 from .serializers import (
     StudentOTPRequestSerializer, StudentOTPVerifySerializer, StudentRegistrationCompleteSerializer,
-    RecruiterRegisterSerializer, UserProfileSerializer,
+    RecruiterRegisterSerializer, UserProfileSerializer, StudentProfileSerializer,
     StudentRosterSerializer, RecruiterReviewSerializer
 )
 from .permissions import IsStudentRole, IsRecruiterRole, IsTPORole
+from application.models import Application
 
 User = get_user_model()
 
@@ -293,3 +295,39 @@ class StudentRosterImportView(APIView):
         except RosterImportError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result, status=status.HTTP_200_OK)
+
+
+
+class StudentProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = StudentProfileSerializer
+    permission_classes = [IsStudentRole]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_object(self):
+        profile, _ = StudentProfile.objects.get_or_create(user=self.request.user)
+        return profile
+
+
+class StudentResumeDownloadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+        profile = get_object_or_404(StudentProfile, user_id=student_id)
+        user = request.user
+        allowed = user.role == 'TPO' or (
+            user.role == 'STUDENT' and user.id == student_id
+        )
+        if user.role == 'RECRUITER' and user.recruiter_status == 'APPROVED':
+            allowed = Application.objects.filter(
+                student_id=student_id,
+                drive__posted_by=user,
+            ).exists()
+        if not allowed or not profile.resume:
+            raise Http404
+        filename = f'{profile.user.roll_number or profile.user.username}_resume.pdf'
+        return FileResponse(
+            profile.resume.open('rb'),
+            as_attachment=True,
+            filename=filename,
+            content_type='application/pdf',
+        )
