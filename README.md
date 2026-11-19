@@ -104,11 +104,13 @@ The challenge is short-lived; OTP values are stored as password hashes, expire a
 4. Start the frontend with `npm run dev`.
 5. Open `http://127.0.0.1:5173`.
 
-The React app currently includes student OTP registration, recruiter self-registration, login, role-based dashboards, student drive applications and profile/resume management, recruiter drive creation and candidate filters/bulk actions/interview scheduling, and TPO roster/recruiter management, placement analytics and CSV exports. A notification centre is available in the workspace header. The backend must be running at the configured API URL. The default CORS settings allow the Vite development origin.
+The React app currently includes student OTP registration, recruiter self-registration, login, role-based dashboards, student-only eligible drive listings and profile/resume management, recruiter drive creation and candidate filters/bulk actions/interview scheduling, and TPO roster/recruiter management, placement analytics and CSV exports. A notification centre is available in the workspace header. The backend must be running at the configured API URL. The default CORS settings allow the Vite development origin.
 
 ## Automated checks
 
-GitHub Actions runs `python manage.py check`, `python manage.py test`, and the React production build for the upgrade branch. Check the Actions tab for the latest run status.
+GitHub Actions runs `python manage.py check`, `python manage.py makemigrations --check --dry-run`, `python manage.py test`, and the React production build for the upgrade branch. Check the Actions tab for the latest run status.
+
+Interactive API documentation is available at `/api/docs/` and the OpenAPI schema at `/api/schema/`.
 
 
 ## Placement pipeline and candidate filters
