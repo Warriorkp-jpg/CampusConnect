@@ -7,7 +7,7 @@ from decimal import Decimal
 from rest_framework.test import APITestCase
 from rest_framework import status
 
-from accounts.models import User, StudentRoster, Notification
+from accounts.models import User, StudentRoster, StudentProfile, Notification
 from drive.models import Drive
 from application.models import Application
 
