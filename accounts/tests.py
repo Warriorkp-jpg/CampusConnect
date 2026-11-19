@@ -219,9 +219,11 @@ class StudentEmailOTPTests(APITestCase):
 
     def test_wrong_otp_is_rejected(self):
         response = self.request_otp()
+        actual = re.search(r'\\b(\\d{6})\\b', mail.outbox[0].body).group(1)
+        wrong = f'{(int(actual) + 1) % 1000000:06d}'
         result = self.client.post(
             '/api/register/student/verify-otp/',
-            {'challenge_id': response.data['challenge_id'], 'otp': '000000'},
+            {'challenge_id': response.data['challenge_id'], 'otp': wrong},
             format='json',
         )
         self.assertEqual(result.status_code, status.HTTP_400_BAD_REQUEST)
