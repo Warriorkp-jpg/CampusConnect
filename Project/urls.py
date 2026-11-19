@@ -5,7 +5,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts.serializers import CampusConnectTokenObtainPairSerializer
 from accounts.views import (
-    StudentRegisterView, StudentOTPRequestView, StudentOTPVerifyView, RecruiterRegisterView, MeView,\n    StudentProfileView, StudentResumeDownloadView, NotificationViewSet,
+    StudentRegisterView, StudentOTPRequestView, StudentOTPVerifyView, RecruiterRegisterView, MeView,\n    StudentProfileView, StudentResumeDownloadView, NotificationViewSet, TPOApplicationExportView,
     StudentDashboardView, RecruiterDashboardView, TPODashboardView,
     PendingRecruitersView, RecruiterApprovalView, StudentRosterViewSet, StudentRosterImportView,
 )
@@ -40,6 +40,7 @@ urlpatterns = [
 
     path('api/tpo/recruiters/pending/', PendingRecruitersView.as_view(), name='pending_recruiters'),
     path('api/tpo/student-roster/import/', StudentRosterImportView.as_view(), name='student_roster_import'),
+    path('api/tpo/reports/applications.csv/', TPOApplicationExportView.as_view(), name='tpo_application_export'),
     path('api/tpo/recruiters/<int:pk>/review/', RecruiterApprovalView.as_view(), name='review_recruiter'),
 
     path('api/', include(router.urls)),
