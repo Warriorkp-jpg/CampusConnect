@@ -5,7 +5,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts.serializers import CampusConnectTokenObtainPairSerializer
 from accounts.views import (
-    StudentRegisterView, RecruiterRegisterView, MeView,
+    StudentRegisterView, StudentOTPRequestView, StudentOTPVerifyView, RecruiterRegisterView, MeView,
     StudentDashboardView, RecruiterDashboardView, TPODashboardView,
     PendingRecruitersView, RecruiterApprovalView, StudentRosterViewSet, StudentRosterImportView,
 )
@@ -25,6 +25,8 @@ router.register(r'tpo/student-roster', StudentRosterViewSet, basename='student-r
 urlpatterns = [
     path('admin/', admin.site.urls),
 
+    path('api/register/student/request-otp/', StudentOTPRequestView.as_view(), name='student_otp_request'),
+    path('api/register/student/verify-otp/', StudentOTPVerifyView.as_view(), name='student_otp_verify'),
     path('api/register/student/', StudentRegisterView.as_view(), name='student_register'),
     path('api/register/recruiter/', RecruiterRegisterView.as_view(), name='recruiter_register'),
     path('api/login/', CampusConnectTokenObtainPairView.as_view(), name='token_obtain_pair'),
