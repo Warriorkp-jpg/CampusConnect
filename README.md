@@ -46,6 +46,11 @@ The importer validates each row, reports row-level errors, skips existing roll n
 | POST `/api/register/recruiter/` | Public | Recruiter registration; account starts pending |
 | POST `/api/login/` | Public | Obtain JWT tokens |
 | GET `/api/me/` | Authenticated | Current account profile and role |
+| GET/PATCH `/api/student-profile/` | Student | Manage skills, GitHub/LinkedIn links and PDF resume |
+| GET `/api/students/{id}/resume/` | Owner, TPO or recruiter with an application | Download a protected student resume |
+| GET `/api/notifications/` | Authenticated | List the current user's notifications |
+| PATCH `/api/notifications/{id}/` | Notification owner | Mark a notification as read |
+| GET `/api/tpo/reports/applications.csv/` | TPO | Export placement applications as CSV |
 | GET `/api/student-zone/` | Student | Student dashboard |
 | GET `/api/recruiter-zone/` | Recruiter | Recruiter dashboard and approval status |
 | GET `/api/tpo-zone/` | TPO | Placement overview |
@@ -54,7 +59,8 @@ The importer validates each row, reports row-level errors, skips existing roll n
 | `/api/tpo/student-roster/` | TPO | List and manage roster entries |
 | POST `/api/tpo/student-roster/import/` | TPO | Bulk import CSV/XLSX roster |
 | `/api/drive/` | Authenticated | Browse and manage placement drives |
-| `/api/application/` | Authenticated | Apply and manage application decisions |
+| `/api/application/` | Authenticated | Apply, filter and manage application decisions |
+| POST `/api/application/bulk-status/` | TPO or approved recruiter | Bulk update candidate stages for accessible applications |
 
 ## Local setup
 
@@ -98,8 +104,19 @@ The challenge is short-lived; OTP values are stored as password hashes, expire a
 4. Start the frontend with `npm run dev`.
 5. Open `http://127.0.0.1:5173`.
 
-The React app currently includes student OTP registration, login, role-based dashboards, student drive applications, recruiter drive creation and candidate status actions, and TPO roster/recruiter management. The backend must be running at the configured API URL. The default CORS settings allow the Vite development origin.
+The React app currently includes student OTP registration, recruiter self-registration, login, role-based dashboards, student drive applications and profile/resume management, recruiter drive creation and candidate filters/bulk actions/interview scheduling, and TPO roster/recruiter management, placement analytics and CSV exports. A notification centre is available in the workspace header. The backend must be running at the configured API URL. The default CORS settings allow the Vite development origin.
 
 ## Automated checks
 
 GitHub Actions runs `python manage.py check`, `python manage.py test`, and the React production build for the upgrade branch. Check the Actions tab for the latest run status.
+
+
+## Placement pipeline and candidate filters
+
+Application stages are `APPLIED`, `SHORTLISTED`, `INTERVIEW`, `SELECTED` and `REJECTED`. Valid transitions are enforced by the API. Moving a shortlisted candidate to `INTERVIEW` requires an interview date/time; the mode can be `ONLINE` or `IN_PERSON`.
+
+Recruiters can filter their own candidates using `/api/application/?status=SHORTLISTED&min_cgpa=7&max_backlogs=0&search=python`. Available filters are `status`, `drive`, `min_cgpa`, `max_cgpa`, `max_backlogs` and `search`. Bulk stage updates accept up to 100 application IDs and are limited to records visible to the current recruiter or TPO.
+
+## Student profile and resume privacy
+
+Students can update their skills, GitHub URL, LinkedIn URL and a PDF resume of up to 5 MB. Resume downloads are served through an authenticated endpoint rather than a public media URL. A student can download their own resume, a TPO can access institutional records, and an approved recruiter can download a resume only when the student has applied to one of that recruiter's drives. Uploaded media is excluded from Git.
