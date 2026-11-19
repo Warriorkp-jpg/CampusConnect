@@ -62,7 +62,9 @@ def _read_rows(uploaded_file):
 
 
 def _cell(row, index):
-    return row[index] if index < len(row) else None
+    if index is None or index < 0 or index >= len(row):
+        return None
+    return row[index]
 
 
 def import_student_roster(uploaded_file):
