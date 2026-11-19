@@ -7,7 +7,7 @@ from accounts.serializers import CampusConnectTokenObtainPairSerializer
 from accounts.views import (
     StudentRegisterView, RecruiterRegisterView, MeView,
     StudentDashboardView, RecruiterDashboardView, TPODashboardView,
-    PendingRecruitersView, RecruiterApprovalView, StudentRosterViewSet,
+    PendingRecruitersView, RecruiterApprovalView, StudentRosterViewSet, StudentRosterImportView,
 )
 from drive.views import DriveViewSet
 from application.views import ApplicationViewSet
@@ -36,6 +36,7 @@ urlpatterns = [
     path('api/tpo-zone/', TPODashboardView.as_view(), name='tpo_zone'),
 
     path('api/tpo/recruiters/pending/', PendingRecruitersView.as_view(), name='pending_recruiters'),
+    path('api/tpo/student-roster/import/', StudentRosterImportView.as_view(), name='student_roster_import'),
     path('api/tpo/recruiters/<int:pk>/review/', RecruiterApprovalView.as_view(), name='review_recruiter'),
 
     path('api/', include(router.urls)),
