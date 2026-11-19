@@ -360,7 +360,7 @@ function RecruiterDashboard() {
           {key:'student_name',label:'Student'},
           {key:'role_title',label:'Role'},
           {key:'student_cgpa',label:'CGPA'},
-          {key:'student_backlogs',label:'Backlogs'},
+          {key:'student_backlogs',label:'Backlogs'},{key:'student_profile',label:'Portfolio',render:a=><div className="portfolio-cell">{a.student_profile?.skills&&<small>{a.student_profile.skills.slice(0,55)}{a.student_profile.skills.length>55?'…':''}</small>}{a.student_profile?.github_url&&<a href={a.student_profile.github_url} target="_blank" rel="noreferrer">GitHub</a>}{a.student_profile?.linkedin_url&&<a href={a.student_profile.linkedin_url} target="_blank" rel="noreferrer">LinkedIn</a>}{a.student_profile?.resume_available&&<button className="btn small" onClick={()=>downloadProtectedFile(a.student_profile.resume_url,`${a.student_roll_number}_resume.pdf`).catch(err=>setError(err.message))}>Resume ↓</button>}</div>},
           {key:'status',label:'Current stage',render:a=><Tag>{a.status}</Tag>},
           {key:'interview_at',label:'Interview',render:a=>a.interview_at?new Date(a.interview_at).toLocaleString():'—'},
           {key:'actions',label:'Update',render:a=><div className="row-actions">
