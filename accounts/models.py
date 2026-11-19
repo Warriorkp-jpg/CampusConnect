@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+import uuid
 
 
 class User(AbstractUser):
@@ -51,8 +52,6 @@ class StudentRoster(models.Model):
 
 class StudentEmailOTP(models.Model):
     """Short-lived, hashed email verification challenge for student onboarding."""
-    import uuid
-
     challenge_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     roll_number = models.CharField(max_length=30, db_index=True)
     code_hash = models.CharField(max_length=128)
