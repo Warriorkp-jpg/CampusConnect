@@ -12,7 +12,7 @@ from .models import StudentRoster
 
 MAX_IMPORT_BYTES = 5 * 1024 * 1024
 MAX_IMPORT_ROWS = 5000
-REQUIRED_COLUMNS = {"roll_number", "full_name"}
+REQUIRED_COLUMNS = {"roll_number", "full_name", "college_email"}
 OPTIONAL_COLUMNS = {"college_email", "program", "batch", "cgpa", "backlogs"}
 HEADER_ALIASES = {
     "rollnumber": "roll_number",
@@ -88,7 +88,7 @@ def import_student_roster(uploaded_file):
     if missing:
         raise RosterImportError(
             "Missing required columns: " + ", ".join(sorted(missing))
-            + ". Required headings are roll_number and full_name."
+            + ". Required headings are roll_number, full_name and college_email."
         )
 
     unknown = set(headers) - REQUIRED_COLUMNS - OPTIONAL_COLUMNS - {""}
