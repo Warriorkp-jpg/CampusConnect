@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('challenge_id', models.UUIDField(default=uuid.uuid4, editable=False, unique=True)),
-                ('roll_number', models.CharField(db_index=True, max_length=30)),
+                ('roll_number', models.CharField(max_length=30)),
                 ('code_hash', models.CharField(max_length=128)),
                 ('expires_at', models.DateTimeField()),
                 ('attempts', models.PositiveSmallIntegerField(default=0)),
