@@ -14,7 +14,7 @@ from .models import StudentRoster
 MAX_IMPORT_BYTES = 5 * 1024 * 1024
 MAX_IMPORT_ROWS = 5000
 REQUIRED_COLUMNS = {"roll_number", "full_name", "college_email"}
-OPTIONAL_COLUMNS = {"college_email", "program", "batch", "cgpa", "backlogs"}
+OPTIONAL_COLUMNS = {"program", "batch", "cgpa", "backlogs"}
 HEADER_ALIASES = {
     "rollnumber": "roll_number",
     "rollno": "roll_number",
