@@ -18,12 +18,13 @@ class ApplicationSerializer(serializers.ModelSerializer):
     student_backlogs = serializers.ReadOnlyField(source='student.backlogs')
     company_name = serializers.ReadOnlyField(source='drive.company_name')
     role_title = serializers.ReadOnlyField(source='drive.role_title')
+    student_profile = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
         fields = (
             'id', 'student', 'student_name', 'student_roll_number', 'student_email',
-            'student_cgpa', 'student_backlogs', 'drive', 'company_name', 'role_title',
+            'student_cgpa', 'student_backlogs', 'student_profile', 'drive', 'company_name', 'role_title',
             'status', 'interview_at', 'interview_mode', 'applied_at', 'updated_at'
         )
         read_only_fields = (
@@ -31,6 +32,25 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'student_cgpa', 'student_backlogs', 'company_name', 'role_title',
             'applied_at', 'updated_at'
         )
+
+    def get_student_profile(self, obj):
+        try:
+            profile = obj.student.student_profile
+        except Exception:
+            return {
+                'skills': '',
+                'github_url': '',
+                'linkedin_url': '',
+                'resume_available': False,
+                'resume_url': None,
+            }
+        return {
+            'skills': profile.skills,
+            'github_url': profile.github_url,
+            'linkedin_url': profile.linkedin_url,
+            'resume_available': bool(profile.resume),
+            'resume_url': f'/api/students/{obj.student_id}/resume/' if profile.resume else None,
+        }
 
     def validate(self, attrs):
         if self.instance is not None:
