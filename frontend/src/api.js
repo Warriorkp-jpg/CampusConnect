@@ -47,3 +47,36 @@ export async function api(path, options = {}, retry = true) {
 }
 
 export const apiBaseUrl = API_BASE;
+
+
+export async function downloadProtectedFile(path, filename) {
+  const request = () => fetch(`${API_BASE}${path}`, {
+    headers: { Authorization: `Bearer ${sessionStorage.getItem('cc_access') || ''}` },
+  });
+  let response = await request();
+  if (response.status === 401) {
+    const refresh = sessionStorage.getItem('cc_refresh');
+    if (refresh) {
+      const refreshed = await fetch(`${API_BASE}/token/refresh/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh }),
+      });
+      if (refreshed.ok) {
+        const tokens = await refreshed.json();
+        saveTokens({ access: tokens.access, refresh });
+        response = await request();
+      }
+    }
+  }
+  if (!response.ok) throw new Error('You are not allowed to download this resume, or it is no longer available.');
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
