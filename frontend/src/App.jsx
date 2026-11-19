@@ -44,6 +44,7 @@ function AuthShell({ children, eyebrow, title, subtitle }) {
 function Login() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -59,6 +60,7 @@ function Login() {
   }
 
   return <AuthShell eyebrow="WELCOME BACK" title="Sign in" subtitle="Use your student roll number or recruiter username.">
+    {location.state?.notice && <div className="alert success">{location.state.notice}</div>}
     <form onSubmit={submit} className="form-stack">
       <label>Username / roll number<input value={username} onChange={e => setUsername(e.target.value)} autoComplete="username" required placeholder="e.g. JMIT2027CSE001" /></label>
       <label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" required placeholder="Enter your password" /></label>
