@@ -24,7 +24,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         base = Application.objects.select_related(
-            'student', 'drive', 'drive__posted_by'
+            'student', 'student__student_profile', 'drive', 'drive__posted_by'
         ).order_by('-applied_at')
         if not user.is_authenticated:
             return Application.objects.none()
