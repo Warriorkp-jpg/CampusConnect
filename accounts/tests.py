@@ -1,3 +1,4 @@
+from django.core.files.uploadedfile import SimpleUploadedFile
 from decimal import Decimal
 
 from rest_framework.test import APITestCase
@@ -101,4 +102,61 @@ class RoleIsolationTests(APITestCase):
             'company_name': 'Impersonated Co', 'role_title': 'Engineer',
             'package_lpa': '5.00', 'min_cgpa': '6.00', 'max_backlogs': 0
         }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+
+class StudentRosterBulkImportTests(APITestCase):
+    def setUp(self):
+        self.tpo = User.objects.create_user(
+            username='roster_tpo', password='StrongPass123', role='TPO'
+        )
+        self.client.force_authenticate(self.tpo)
+
+    def upload_csv(self, content, filename='roster.csv'):
+        upload = SimpleUploadedFile(
+            filename, content.encode('utf-8'), content_type='text/csv'
+        )
+        return self.client.post(
+            '/api/tpo/student-roster/import/',
+            {'file': upload},
+            format='multipart'
+        )
+
+    def test_imports_valid_rows_and_reports_invalid_rows(self):
+        response = self.upload_csv(
+            'roll_number,full_name,college_email,cgpa,backlogs\n'
+            'JMIT101,Student One,one@jmit.example,8.25,0\n'
+            'JMIT102,,two@jmit.example,7.50,0\n'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 1)
+        self.assertEqual(response.data['error_count'], 1)
+        self.assertTrue(StudentRoster.objects.filter(roll_number='JMIT101').exists())
+        self.assertFalse(StudentRoster.objects.filter(roll_number='JMIT102').exists())
+
+    def test_existing_roster_records_are_skipped_not_overwritten(self):
+        StudentRoster.objects.create(
+            roll_number='JMIT201', full_name='Original Name', cgpa=Decimal('7.00')
+        )
+        response = self.upload_csv(
+            'roll_number,full_name\nJMIT201,Changed Name\nJMIT202,New Student\n'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 1)
+        self.assertEqual(response.data['skipped_existing'], 1)
+        original = StudentRoster.objects.get(roll_number='JMIT201')
+        self.assertEqual(original.full_name, 'Original Name')
+
+    def test_rejects_unsupported_file_type(self):
+        response = self.upload_csv('roll_number,full_name\nJMIT301,Student\n', 'roster.txt')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_only_tpo_can_import_roster(self):
+        student = User.objects.create_user(
+            username='roster_student', roll_number='S900',
+            password='StrongPass123', role='STUDENT'
+        )
+        self.client.force_authenticate(student)
+        response = self.upload_csv('roll_number,full_name\nS901,Student\n')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
