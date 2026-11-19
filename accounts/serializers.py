@@ -67,7 +67,10 @@ class RecruiterRegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_password(self, value):
-        validate_password(value)
+        try:
+            validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
         return value
 
     def create(self, validated_data):
