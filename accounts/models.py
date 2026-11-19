@@ -89,3 +89,27 @@ class StudentProfile(models.Model):
 
     def __str__(self):
         return f'Student profile: {self.user.username}'
+
+
+class Notification(models.Model):
+    CATEGORY_CHOICES = (
+        ('GENERAL', 'General'),
+        ('APPLICATION', 'Application'),
+        ('RECRUITER', 'Recruiter'),
+        ('PLACEMENT', 'Placement'),
+    )
+    user = models.ForeignKey(
+        'accounts.User', on_delete=models.CASCADE, related_name='notifications'
+    )
+    title = models.CharField(max_length=120)
+    message = models.CharField(max_length=500)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='GENERAL')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        indexes = [models.Index(fields=['user', 'is_read', 'created_at'], name='accounts_notif_user_read_idx')]
+
+    def __str__(self):
+        return f'{self.title} → {self.user.username}'
