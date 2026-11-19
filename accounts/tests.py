@@ -1,4 +1,7 @@
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core import mail
+from django.test import override_settings
+import re
 from decimal import Decimal
 
 from rest_framework.test import APITestCase
@@ -10,26 +13,25 @@ from application.models import Application
 
 
 class RegistrationWorkflowTests(APITestCase):
-    def test_student_registration_requires_roster_and_uses_roster_academics(self):
-        missing = self.client.post('/api/register/student/', {
-            'roll_number': 'JMIT001', 'password': 'StrongPass123'
+    def test_student_registration_requires_verified_roster_email(self):
+        response = self.client.post('/api/register/student/', {
+            'challenge_id': '00000000-0000-0000-0000-000000000000',
+            'password': 'StrongPass123',
         }, format='json')
-        self.assertEqual(missing.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
         record = StudentRoster.objects.create(
             roll_number='JMIT001', full_name='Test Student',
+            college_email='student@jmit.example',
             cgpa=Decimal('8.25'), backlogs=0
         )
         response = self.client.post('/api/register/student/', {
-            'roll_number': 'jmit001', 'email': 'student@example.com',
-            'password': 'StrongPass123', 'role': 'TPO', 'cgpa': 10, 'backlogs': 0,
+            'challenge_id': '00000000-0000-0000-0000-000000000000',
+            'password': 'StrongPass123', 'email': 'attacker@example.com',
         }, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        user = User.objects.get(roll_number='JMIT001')
-        self.assertEqual(user.role, 'STUDENT')
-        self.assertEqual(user.cgpa, record.cgpa)
-        self.assertEqual(user.backlogs, record.backlogs)
-        self.assertEqual(record.student_user_id, user.id)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(User.objects.filter(roll_number='JMIT001').exists())
+        self.assertIsNone(record.student_user_id)
 
     def test_recruiter_registration_is_pending_and_role_is_server_assigned(self):
         response = self.client.post('/api/register/recruiter/', {
@@ -160,3 +162,95 @@ class StudentRosterBulkImportTests(APITestCase):
         self.client.force_authenticate(student)
         response = self.upload_csv('roll_number,full_name\nS901,Student\n')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class StudentEmailOTPTests(APITestCase):
+    def setUp(self):
+        self.record = StudentRoster.objects.create(
+            roll_number='JMITOTP001',
+            full_name='OTP Student',
+            college_email='otp.student@jmit.example',
+            cgpa=Decimal('8.40'),
+            backlogs=0,
+        )
+
+    def request_otp(self):
+        return self.client.post(
+            '/api/register/student/request-otp/',
+            {'roll_number': self.record.roll_number},
+            format='json',
+        )
+
+    def test_student_can_verify_roster_email_and_register(self):
+        request_response = self.request_otp()
+        self.assertEqual(request_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        challenge_id = request_response.data['challenge_id']
+        otp_match = re.search(r'\b(\d{6})\b', mail.outbox[0].body)
+        self.assertIsNotNone(otp_match)
+
+        verify_response = self.client.post(
+            '/api/register/student/verify-otp/',
+            {'challenge_id': challenge_id, 'otp': otp_match.group(1)},
+            format='json',
+        )
+        self.assertEqual(verify_response.status_code, status.HTTP_200_OK)
+
+        register_response = self.client.post(
+            '/api/register/student/',
+            {
+                'challenge_id': challenge_id,
+                'password': 'StrongPass123',
+                'email': 'attacker@example.com',
+                'role': 'TPO',
+            },
+            format='json',
+        )
+        self.assertEqual(register_response.status_code, status.HTTP_201_CREATED)
+        user = User.objects.get(roll_number=self.record.roll_number)
+        self.record.refresh_from_db()
+        self.assertEqual(user.email, self.record.college_email)
+        self.assertEqual(user.role, 'STUDENT')
+        self.assertEqual(user.cgpa, self.record.cgpa)
+        self.assertEqual(user.backlogs, self.record.backlogs)
+        self.assertEqual(self.record.student_user_id, user.id)
+
+    def test_wrong_otp_is_rejected(self):
+        response = self.request_otp()
+        result = self.client.post(
+            '/api/register/student/verify-otp/',
+            {'challenge_id': response.data['challenge_id'], 'otp': '000000'},
+            format='json',
+        )
+        self.assertEqual(result.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unknown_roll_number_does_not_send_email(self):
+        response = self.client.post(
+            '/api/register/student/request-otp/',
+            {'roll_number': 'UNKNOWN999'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_verified_challenge_cannot_be_reused(self):
+        response = self.request_otp()
+        otp_match = re.search(r'\b(\d{6})\b', mail.outbox[0].body)
+        self.client.post(
+            '/api/register/student/verify-otp/',
+            {'challenge_id': response.data['challenge_id'], 'otp': otp_match.group(1)},
+            format='json',
+        )
+        self.client.post(
+            '/api/register/student/',
+            {'challenge_id': response.data['challenge_id'], 'password': 'StrongPass123'},
+            format='json',
+        )
+        replay = self.client.post(
+            '/api/register/student/',
+            {'challenge_id': response.data['challenge_id'], 'password': 'StrongPass123'},
+            format='json',
+        )
+        self.assertEqual(replay.status_code, status.HTTP_400_BAD_REQUEST)
