@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Application
+from accounts.models import StudentProfile
 
 
 class ApplicationSerializer(serializers.ModelSerializer):
@@ -36,7 +37,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
     def get_student_profile(self, obj):
         try:
             profile = obj.student.student_profile
-        except Exception:
+        except StudentProfile.DoesNotExist:
             return {
                 'skills': '',
                 'github_url': '',
