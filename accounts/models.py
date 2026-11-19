@@ -64,8 +64,8 @@ class StudentEmailOTP(models.Model):
     class Meta:
         ordering = ('-created_at',)
         indexes = [
-            models.Index(fields=['roll_number', 'created_at']),
-            models.Index(fields=['challenge_id', 'expires_at']),
+            models.Index(fields=['roll_number', 'created_at'], name='accounts_st_roll_n_7d3c1a_idx'),
+            models.Index(fields=['challenge_id', 'expires_at'], name='accounts_st_challe_7a0a44_idx'),
         ]
 
     def __str__(self):
