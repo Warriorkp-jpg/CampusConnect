@@ -304,7 +304,7 @@ function StudentDashboard() {
       <DataTable columns={[{key:'company_name',label:'Company'},{key:'role_title',label:'Role'},{key:'package_lpa',label:'Package (LPA)'},{key:'min_cgpa',label:'Min CGPA'},{key:'application_deadline',label:'Deadline'},{key:'action',label:'Action',render:d=>applied.has(d.id)?<Tag tone="green">Applied</Tag>:<button className="btn small primary" onClick={()=>apply(d.id)}>Apply</button>}]} rows={drives} empty="No open drives are available right now." />
     </section>
     <section className="panel section-gap"><div className="panel-heading"><div><h3>My applications</h3><p>Track your placement progress.</p></div></div>
-      <DataTable columns={[{key:'company_name',label:'Company'},{key:'role_title',label:'Role'},{key:'status',label:'Status',render:a=><Tag tone={a.status==='SELECTED'?'green':a.status==='REJECTED'?'red':'blue'}>{a.status}</Tag>},{key:'applied_at',label:'Applied on',render:a=>new Date(a.applied_at).toLocaleDateString()}]} rows={applications} />
+      <DataTable columns={[{key:'company_name',label:'Company'},{key:'role_title',label:'Role'},{key:'status',label:'Status',render:a=><Tag tone={a.status==='SELECTED'?'green':a.status==='REJECTED'?'red':'blue'}>{a.status}</Tag>},{key:'interview_at',label:'Interview',render:a=>a.interview_at?new Date(a.interview_at).toLocaleString():'—'},{key:'interview_mode',label:'Mode'},{key:'applied_at',label:'Applied on',render:a=>new Date(a.applied_at).toLocaleDateString()}]} rows={applications} />
     </section>
     <StudentProfilePanel />
   </>;
