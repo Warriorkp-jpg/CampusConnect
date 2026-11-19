@@ -131,7 +131,9 @@ def import_student_roster(uploaded_file):
             row_errors.append("full_name must be 150 characters or fewer")
 
         email = str(_cell(row, positions.get("college_email")) or "").strip()
-        if email:
+        if not email:
+            row_errors.append("college_email is required")
+        else:
             try:
                 validate_email(email)
             except DjangoValidationError:
