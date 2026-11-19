@@ -7,7 +7,7 @@ from decimal import Decimal
 from rest_framework.test import APITestCase
 from rest_framework import status
 
-from accounts.models import User, StudentRoster
+from accounts.models import User, StudentRoster, Notification
 from drive.models import Drive
 from application.models import Application
 
@@ -331,3 +331,50 @@ class StudentProfileAndResumeTests(APITestCase):
             '/api/student-profile/', {'resume': bad_file}, format='multipart'
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+
+class NotificationAPITests(APITestCase):
+    def setUp(self):
+        self.student = User.objects.create_user(
+            username='notice_student', roll_number='NOTICE001',
+            password='StrongPass123', role='STUDENT'
+        )
+        self.other_student = User.objects.create_user(
+            username='notice_other', roll_number='NOTICE002',
+            password='StrongPass123', role='STUDENT'
+        )
+        self.own_notice = Notification.objects.create(
+            user=self.student, title='Application update',
+            message='Your application was shortlisted.', category='APPLICATION'
+        )
+        Notification.objects.create(
+            user=self.other_student, title='Private notice',
+            message='This belongs to another student.'
+        )
+
+    def test_user_only_sees_and_can_mark_own_notifications_read(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.get('/api/notifications/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data['results'] if isinstance(response.data, dict) else response.data
+        self.assertEqual([item['id'] for item in results], [self.own_notice.id])
+
+        update = self.client.patch(
+            f'/api/notifications/{self.own_notice.id}/',
+            {'is_read': True},
+            format='json',
+        )
+        self.assertEqual(update.status_code, status.HTTP_200_OK)
+        self.own_notice.refresh_from_db()
+        self.assertTrue(self.own_notice.is_read)
+
+    def test_user_cannot_read_another_users_notification(self):
+        other_notice = Notification.objects.get(user=self.other_student)
+        self.client.force_authenticate(self.student)
+        response = self.client.patch(
+            f'/api/notifications/{other_notice.id}/',
+            {'is_read': True},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
